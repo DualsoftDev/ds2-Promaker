@@ -124,7 +124,6 @@ sequenceDiagram
 ```
 
 > **제약**: `store.GetProject(id).Name <- "new"` 같은 직접 필드 수정은 Undo 추적 불가. 변경은 반드시 `store.메서드()` 경유.
-> 상세: ds2 저장소의 [`RUNTIME.md`](https://github.com/DualsoftDev/ds2/blob/main/RUNTIME.md)
 
 ---
 
@@ -206,7 +205,6 @@ log4net. `App.xaml.cs OnStartup` 에서 `log4net.config` 를 읽는다(없으면
 
 | 문서 | 내용 |
 |:-----|:-----|
-| [`RUNTIME.md` (ds2)](https://github.com/DualsoftDev/ds2/blob/main/RUNTIME.md) | 편집 명령 · CRUD · Undo/Redo · 복사/붙여넣기 · JSON · AASX 동작 상세 |
 | [`Apps/Promaker/Docs/`](Apps/Promaker/Docs/) | 설계·완료 기록 |
 | [`Apps/Promaker/LOCALIZATION_GUIDE.md`](Apps/Promaker/LOCALIZATION_GUIDE.md) | 다국어 리소스 |
 | [`Solutions/Tools/Ds2.TutorialVerification/README.md`](Solutions/Tools/Ds2.TutorialVerification/README.md) | 학습 모델 검증 실행기 |
