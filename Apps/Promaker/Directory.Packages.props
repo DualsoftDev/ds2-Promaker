@@ -1,0 +1,32 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <!-- WPF MVVM -->
+  <ItemGroup>
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <!-- JSON 편집 탭 에디터 (검색/바꾸기 + syntax highlighting). MIT, ICSharpCode. -->
+    <PackageVersion Include="AvalonEdit" Version="6.3.0.90" />
+  </ItemGroup>
+  <!-- 로깅 -->
+  <ItemGroup>
+    <PackageVersion Include="log4net" Version="3.3.0" />
+  </ItemGroup>
+  <!-- 아이콘 팩 -->
+  <ItemGroup>
+    <PackageVersion Include="MahApps.Metro.IconPacks.Material" Version="6.0.0" />
+  </ItemGroup>
+  <!-- Markdown 렌더 -->
+  <ItemGroup>
+    <PackageVersion Include="MdXaml" Version="1.27.0" />
+  </ItemGroup>
+  <!-- WebView2 -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.Web.WebView2" Version="1.0.2277.86" />
+  </ItemGroup>
+  <!-- AvalonDock (MIT) — Promaker.Dock 캡슐화 -->
+  <ItemGroup>
+    <PackageVersion Include="Dirkster.AvalonDock" Version="4.74.1" />
+    <PackageVersion Include="Dirkster.AvalonDock.Themes.VS2013" Version="4.74.1" />
+  </ItemGroup>
+</Project>

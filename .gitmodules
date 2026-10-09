@@ -1,0 +1,3 @@
+[submodule "external/ds2"]
+	path = external/ds2
+	url = https://github.com/DualsoftDev/ds2.git
