@@ -14,6 +14,15 @@
     <PackageProjectUrl>https://github.com/DualsoftDev/ds2</PackageProjectUrl>
   </PropertyGroup>
 
+  <!-- Promaker 저장소 전체(Apps/Promaker 와 Solutions/ 의 모든 프로젝트) 버전의 SSOT = Apps/Promaker/BuildVersion.txt. csproj 에 <Version> 을 두지 않는다 —
+       매 빌드 시 이 props 가 값을 읽어 Version / AssemblyVersion / FileVersion 에 주입한다. -->
+  <PropertyGroup>
+    <PromakerVersion>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../Apps/Promaker/BuildVersion.txt').Trim())</PromakerVersion>
+    <Version>$(PromakerVersion)</Version>
+    <AssemblyVersion>$(PromakerVersion)</AssemblyVersion>
+    <FileVersion>$(PromakerVersion)</FileVersion>
+  </PropertyGroup>
+
   <!-- Release 빌드 설정 -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <Optimize>true</Optimize>
