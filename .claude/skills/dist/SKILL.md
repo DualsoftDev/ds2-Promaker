@@ -20,7 +20,7 @@ git 추적 대상이며, 매 `/dist` 마다 파일 맨 위에 이번 배포 entr
 
 ## 실행 cwd 전제 (필수)
 
-`/dist` 의 **모든 스텝은 repo 최상위(e.g `F:/Git/ds2/main`)를 cwd 로 가정**한다. 이하 문서의 모든 상대경로(`Apps/Promaker/...`)는 repo root 기준이다.
+`/dist` 의 **모든 스텝은 repo 최상위(e.g `C:/.../ds2-Promaker`)를 cwd 로 가정**한다. 이하 문서의 모든 상대경로(`Apps/Promaker/...`)는 repo root 기준이다.
 
 - 진입 시 **가장 먼저** `cd "$(git rev-parse --show-toplevel)"` 로 repo root 로 이동한 뒤 Step 1 부터 진행한다.
 - 본 skill 은 Promaker 앱 폴더(`Apps/Promaker`) 안에서 호출될 수 있으므로(세션 cwd 가 repo root 가 아님), 이 cd 를 생략하면 상대경로가 `Apps/Promaker/Apps/Promaker/...` 로 어긋난다. 생략 금지.
@@ -46,7 +46,7 @@ git 추적 대상이며, 매 `/dist` 마다 파일 맨 위에 이번 배포 entr
    - 우선 `git fetch --tags --prune origin` 으로 remote tag 캐시 갱신 (다른 머신에서 push 된 tag 가 stale 로 누락되는 것 방지).
    - Local: `git rev-parse --verify refs/tags/vPromaker_$CUR_VER` 성공
    - Remote: `git ls-remote --tags origin "refs/tags/vPromaker_$CUR_VER"` non-empty
-3. **빌드**: `make -C Apps/Promaker dist-installer` — Promaker installer `.exe` 생성. 실패 시 중단.
+3. **빌드**: `git submodule update --init --recursive` 로 `external/ds2` 서브모듈을 고정 커밋으로 맞춘 뒤 `make -C Apps/Promaker dist-installer` — Promaker installer `.exe` 생성. 실패 시 중단. (서브모듈이 비어 있으면 Ds2.Editor 가 `DsStore` 미정의 등 FS0039 로 실패한다.)
 4. **Pull**: `git pull --ff-only` — upstream 존재 시 (`git rev-parse --abbrev-ref --symbolic-full-name @{u}` 로 판정). 실패 시 중단.
 5. **배포 대상 변경 유무 사전 검사** — ReleaseNote prepend **이전** 에 수행 (검사를 prepend 뒤에 두면 ReleaseNote 변경 자체가 항상 non-empty 로 잡혀 검사가 사문화됨):
    - `PREV_TAG=$(git describe --tags --match 'vPromaker_*' --abbrev=0 HEAD 2>/dev/null || true)`

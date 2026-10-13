@@ -188,7 +188,7 @@ make -C Apps/Promaker dist-installer            # self-contained (기본 MODE=sc
 make -C Apps/Promaker dist-installer MODE=fd    # framework-dependent (.NET Desktop Runtime 자동 다운로드)
 ```
 
-산출물: `Apps/Promaker/Installer/Output/Promaker_Setup_<버전>_sc.exe` (`_fd`). 버전은 `BuildVersion.txt` 하나만 올린다(`scripts/bump-buildversion.sh`). 정식 배포(릴리스 노트 누적 · 태그 · scp)는 `Apps/Promaker/.claude/skills/dist` 워크플로를 쓴다.
+산출물: `Apps/Promaker/Installer/Output/Promaker_Setup_<버전>_sc.exe` (`_fd`). 버전은 `BuildVersion.txt` 하나만 올린다(`scripts/bump-buildversion.sh`). 정식 배포(릴리스 노트 누적 · 태그 · scp)는 `.claude/skills/dist` 워크플로(Claude Code `/dist`)를 쓴다.
 
 ## 로깅
 

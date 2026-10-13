@@ -59,7 +59,9 @@ Desktop.ini
 
 # AI / Claude Code
 .claude/
-!Apps/Promaker/.claude/
+!/.claude/
+/.claude/*
+!/.claude/skills/
 .pat
 *.pat
 CHANGED.md

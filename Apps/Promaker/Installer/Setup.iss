@@ -1,7 +1,7 @@
 ; Promaker installer script
 ; Requires: Inno Setup 6.4+
 ; Build entry point:
-;   make -C installer/Apps/Promaker dist-installer        ; .exe only
+;   make -C Apps/Promaker dist-installer                  ; .exe only
 ;   /dist skill                                           ; full release (zip + scp + tag + push)
 ; This .iss accepts PublishDir / SelfContainedMode / OutputSuffix
 ; as /D arguments (see #ifndef defaults below).
