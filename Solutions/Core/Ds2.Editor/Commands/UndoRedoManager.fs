@@ -27,6 +27,10 @@ type UndoRedoManager(maxSize: int, maxSnapshotBytes: int64) =
     let mutable undoBytes = 0L
     let mutable redoBytes = 0L
 
+    // undo 스택이 빈 위치를 나타내는 기준 객체. 가장 오래된 트랜잭션을 버리거나 이력을 비우면 새로 바꾼다 —
+    // 버려진 편집은 되돌릴 수 없으니, 끝까지 되돌려도 처음(열기·비우기 시점)과 다른 상태다.
+    let mutable emptyPosition = obj ()
+
     let popFirst (stack: LinkedList<UndoTransaction>) =
         match stack.First with
         | null -> None
@@ -68,15 +72,17 @@ type UndoRedoManager(maxSize: int, maxSnapshotBytes: int64) =
         | last ->
             undoBytes <- undoBytes - last.Value.ApproxSnapshotBytes
             undoStack.RemoveLast()
+            emptyPosition <- obj ()
 
     member _.UndoLabels = undoStack |> Seq.map (fun t -> t.Label) |> Seq.toList
 
-    /// 이력의 현재 위치 = 맨 위 undo 트랜잭션(없으면 null). 되돌리기·다시 실행은 같은 인스턴스를 두 스택 사이에서 옮기므로,
-    /// 저장 시점의 값과 참조 비교하면 "저장한 상태로 돌아왔는지" 를 정확히 안다 — undo 개수로는 저장 후 되돌리기나
-    /// 되돌린 뒤 새 편집을 구분하지 못했다.
+    /// 이력의 현재 위치 = 맨 위 undo 트랜잭션(없으면 빈 위치 기준 객체). 되돌리기·다시 실행은 같은 인스턴스를 두 스택 사이에서
+    /// 옮기므로, 저장 시점의 값과 참조 비교하면 "저장한 상태로 돌아왔는지" 를 정확히 안다 — undo 개수로는 저장 후 되돌리기나
+    /// 되돌린 뒤 새 편집을 구분하지 못했다. 빈 위치가 늘 null 이던 때는, 상한으로 버려진 편집이 모델에 남았는데도 끝까지
+    /// 되돌리면 열 때의 위치와 같아져 "저장됨" 으로 보였다.
     member _.CurrentPosition : obj =
         match undoStack.First with
-        | null -> null
+        | null -> emptyPosition
         | first -> box first.Value
     member _.RedoLabels = redoStack |> Seq.map (fun t -> t.Label) |> Seq.toList
 
@@ -133,3 +139,4 @@ type UndoRedoManager(maxSize: int, maxSnapshotBytes: int64) =
         redoStack.Clear()
         undoBytes <- 0L
         redoBytes <- 0L
+        emptyPosition <- obj ()

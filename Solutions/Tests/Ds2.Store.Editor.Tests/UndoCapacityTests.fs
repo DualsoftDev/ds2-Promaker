@@ -90,3 +90,20 @@ let ``Real edits record a non-zero snapshot size`` () =
     Assert.True(
         editorState.UndoManager.ApproxSnapshotBytes > 0L,
         "편집 트랜잭션이 스냅샷 크기를 기록하지 않았다")
+
+/// 저장 판정은 이력 위치를 저장 시점과 참조 비교한다. 상한 때문에 가장 오래된 편집이 버려지면, 끝까지 되돌린 빈 이력도
+/// 열었을 때와 다른 위치여야 한다 — 빈 위치가 늘 null 이던 때는 버려진 편집이 모델에 남았는데 "저장됨" 으로 보여
+/// 닫을 때 저장 확인 없이 편집을 잃었다. 버린 것이 없으면 빈 위치는 그대로다.
+[<Fact>]
+let ``The empty-history position changes only once an old transaction is dropped`` () =
+    let mgr = UndoRedoManager(2, 1000L)
+    let opened = mgr.CurrentPosition
+
+    mgr.Push(tx "op1" 1L)
+    mgr.PopUndo() |> ignore
+    Assert.True(obj.ReferenceEquals(opened, mgr.CurrentPosition))
+
+    for i in 2 .. 4 do
+        mgr.Push(tx (sprintf "op%d" i) 1L)
+    while (mgr.PopUndo()).IsSome do ()
+    Assert.False(obj.ReferenceEquals(opened, mgr.CurrentPosition))
