@@ -27,10 +27,9 @@ module internal DirectArrowOps =
                 match Queries.trySystemIdOfWork newEndpointId store, Queries.trySystemIdOfWork keepId store with
                 | Some newSysId, Some keepSysId
                     when newSysId = arrow.ParentId && keepSysId = arrow.ParentId ->
-                    let expectedKey = ConnectionQueries.arrowKey newSourceId newTargetId arrow.ArrowType
                     let hasDuplicate =
                         Queries.arrowWorksOf arrow.ParentId store
-                        |> ConnectionQueries.hasArrowKeyExcept expectedKey (Some arrow.Id)
+                        |> ConnectionQueries.hasSameConnection ((=) arrow.Id) newSourceId newTargetId arrow.ArrowType
                     if hasDuplicate then false
                     else
                         store.TrackMutate(store.ArrowWorks, arrowId, fun a ->
@@ -47,10 +46,9 @@ module internal DirectArrowOps =
                 match Queries.getCall newEndpointId store, Queries.getCall keepId store with
                 | Some newCall, Some keepCall
                     when newCall.ParentId = arrow.ParentId && keepCall.ParentId = arrow.ParentId ->
-                    let expectedKey = ConnectionQueries.arrowKey newSourceId newTargetId arrow.ArrowType
                     let hasDuplicate =
                         Queries.arrowCallsOf arrow.ParentId store
-                        |> ConnectionQueries.hasArrowKeyExcept expectedKey (Some arrow.Id)
+                        |> ConnectionQueries.hasSameConnection ((=) arrow.Id) newSourceId newTargetId arrow.ArrowType
                     if hasDuplicate then false
                     elif ConnectionQueries.wouldRewireCreateCallCycle store arrowId newSourceId newTargetId then
                         StoreLog.warn($"Reconnect rejected: Call cycle. arrowId={arrowId}")
@@ -258,10 +256,9 @@ type DsStoreArrowsExtensions =
         StoreLog.debug($"arrowId={arrowId}")
         match Queries.getArrowWork arrowId store with
         | Some arrow ->
-            let expectedKey = ConnectionQueries.arrowKey arrow.TargetId arrow.SourceId arrow.ArrowType
             let hasDuplicate =
                 Queries.arrowWorksOf arrow.ParentId store
-                |> ConnectionQueries.hasArrowKeyExcept expectedKey (Some arrow.Id)
+                |> ConnectionQueries.hasSameConnection ((=) arrow.Id) arrow.TargetId arrow.SourceId arrow.ArrowType
             if hasDuplicate then false
             else
                 store.WithTransaction("화살표 방향 변경", fun () ->
@@ -274,10 +271,9 @@ type DsStoreArrowsExtensions =
         | None ->
             match Queries.getArrowCall arrowId store with
             | Some arrow ->
-                let expectedKey = ConnectionQueries.arrowKey arrow.TargetId arrow.SourceId arrow.ArrowType
                 let hasDuplicate =
                     Queries.arrowCallsOf arrow.ParentId store
-                    |> ConnectionQueries.hasArrowKeyExcept expectedKey (Some arrow.Id)
+                    |> ConnectionQueries.hasSameConnection ((=) arrow.Id) arrow.TargetId arrow.SourceId arrow.ArrowType
                 if hasDuplicate then false
                 elif ConnectionQueries.wouldReverseCreateCallCycle store arrowId then
                     StoreLog.warn($"Reverse rejected: Call cycle. arrowId={arrowId}")
@@ -303,22 +299,16 @@ type DsStoreArrowsExtensions =
         for arrowId in distinctIds do
             match Queries.getArrowWork arrowId store with
             | Some arrow ->
-                let newKey = ConnectionQueries.arrowKey arrow.TargetId arrow.SourceId arrow.ArrowType
                 let conflict =
                     Queries.arrowWorksOf arrow.ParentId store
-                    |> Seq.exists (fun a ->
-                        not (batchSet.Contains a.Id)
-                        && ConnectionQueries.arrowKeyOf a = newKey)
+                    |> ConnectionQueries.hasSameConnection batchSet.Contains arrow.TargetId arrow.SourceId arrow.ArrowType
                 if not conflict then workAccepted.Add(arrowId)
             | None ->
                 match Queries.getArrowCall arrowId store with
                 | Some arrow ->
-                    let newKey = ConnectionQueries.arrowKey arrow.TargetId arrow.SourceId arrow.ArrowType
                     let conflict =
                         Queries.arrowCallsOf arrow.ParentId store
-                        |> Seq.exists (fun a ->
-                            not (batchSet.Contains a.Id)
-                            && ConnectionQueries.arrowKeyOf a = newKey)
+                        |> ConnectionQueries.hasSameConnection batchSet.Contains arrow.TargetId arrow.SourceId arrow.ArrowType
                     if not conflict then callAccepted.Add(arrowId)
                 | None -> ()
 
@@ -399,7 +389,7 @@ type DsStoreArrowsExtensions =
         links.Length
 
     /// 지정된 Work ID 목록에서 같은 System에 속한 Work들끼리 ResetReset 화살표를 전체 쌍으로 연결.
-    /// 쌍 (A, B)에 A→B 또는 B→A ResetReset 이 이미 있으면 스킵 → 중복 방지.
+    /// 쌍 (A, B)에 같은 연결(A→B 또는 B→A ResetReset)이 이미 있으면 스킵 → 중복 방지.
     /// N개 Work → 최대 N*(N-1)/2 화살표 (단일 트랜잭션)
     [<Extension>]
     static member ConnectWorksWithMutualReset(store: DsStore, workIds: seq<Guid>) : int =
@@ -415,21 +405,16 @@ type DsStoreArrowsExtensions =
             |> Seq.toList
         if bySystem.IsEmpty then 0
         else
-            // 기존 ResetReset 화살표를 양방향 key 세트로 프리빌드
-            let existing =
-                Queries.allArrowWorks store
-                |> List.filter (fun a -> a.ArrowType = ArrowType.ResetReset)
-                |> List.collect (fun a ->
-                    [ ConnectionQueries.arrowKey a.SourceId a.TargetId a.ArrowType
-                      ConnectionQueries.arrowKey a.TargetId a.SourceId a.ArrowType ])
-                |> System.Collections.Generic.HashSet
             let links =
                 bySystem
                 |> List.collect (fun (sysId, works) ->
+                    let systemArrows = Queries.arrowWorksOf sysId store |> Seq.toList
                     [ for i in 0 .. works.Length - 2 do
                         for j in i + 1 .. works.Length - 1 do
-                            let key = ConnectionQueries.arrowKey works.[i] works.[j] ArrowType.ResetReset
-                            if not (existing.Contains(key)) then
+                            let exists =
+                                systemArrows
+                                |> ConnectionQueries.hasSameConnection (fun _ -> false) works.[i] works.[j] ArrowType.ResetReset
+                            if not exists then
                                 yield (sysId, works.[i], works.[j]) ])
             if links.IsEmpty then 0
             else

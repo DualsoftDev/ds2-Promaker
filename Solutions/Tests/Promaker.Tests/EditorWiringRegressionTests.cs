@@ -48,6 +48,31 @@ public sealed class EditorWiringRegressionTests
         });
     }
 
+    /// <summary>Start 로 이어 둔 두 Work 를 다시 골라도 연결 메뉴가 떠야 한다 — 예전엔 메뉴 판단이 Start 로만 따져
+    /// "화살표 연결" 이 꺼졌고, Reset 같은 다른 종류도 그을 수 없었다. 같은 연결인 Start · StartReset 만 꺼진다.</summary>
+    [Fact]
+    public void Two_works_joined_by_start_can_still_be_connected_with_other_arrow_types()
+    {
+        StaTestRunner.Run(() =>
+        {
+            var (vm, store, _, _, _, flowId) = NewProject();
+            var work1Id = store.AddWork("W1", flowId);
+            var work2Id = store.AddWork("W2", flowId);
+            store.ConnectSelectionInOrder(new[] { work1Id, work2Id }, ArrowType.Start);
+
+            vm.Selection.SelectNodeFromCanvas(new EntityNode(work1Id, EntityKind.Work, "W1"), ctrlPressed: false, shiftPressed: false);
+            vm.Selection.SelectNodeFromCanvas(new EntityNode(work2Id, EntityKind.Work, "W2"), ctrlPressed: true, shiftPressed: false);
+
+            Assert.True(vm.Selection.TryGetOrderedSelectionConnectEntityType(out var kind));
+            Assert.Equal(EntityKind.Work, kind);
+            Assert.True(vm.ConnectSelectedNodesCommand.CanExecute(null));
+            var types = vm.Selection.ConnectableArrowTypes();
+            Assert.DoesNotContain(ArrowType.Start, types);
+            Assert.DoesNotContain(ArrowType.StartReset, types);
+            Assert.Contains(ArrowType.Reset, types);
+        });
+    }
+
     /// <summary>Reference 가 걸린 Work 를 다른 Flow 로 옮기면 막고 이유를 알려야 한다 — 예전엔 원본이 옮겨지고 Reference 가
     /// 경고 없이 지워졌다.</summary>
     [Fact]

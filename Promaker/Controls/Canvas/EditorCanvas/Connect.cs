@@ -138,6 +138,8 @@ public partial class EditorCanvas
         IEnumerable<ArrowType> menuTypes = isWorkMode
             ? ArrowTypeFrequencyTracker.GetPinnedTypes(available)
             : available;
+        // 이미 같은 연결이 있는 종류는 꺼 둔다 — 나머지 종류는 같은 쌍에도 더 그을 수 있다.
+        var connectable = VM?.Selection.ConnectableArrowTypes() ?? Array.Empty<ArrowType>();
 
         foreach (var at in menuTypes)
         {
@@ -146,6 +148,7 @@ public partial class EditorCanvas
             {
                 Header = ArrowTypeFrequencyTracker.DisplayName(type),
                 Icon = CreateArrowIcon(type),
+                IsEnabled = connectable.Contains(type),
             };
             item.Click += (_, _) =>
             {

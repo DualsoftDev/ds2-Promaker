@@ -422,6 +422,8 @@ public partial class MainViewModel
                 statusOverride: "[ERROR] Failed to connect selected nodes."))
             return false;
 
+        if (createdCount <= 0)
+            StatusText = SelectionState.SameConnectionStatus;
         return createdCount > 0;
     }
 }

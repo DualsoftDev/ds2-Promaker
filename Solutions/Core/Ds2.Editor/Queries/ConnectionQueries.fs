@@ -5,20 +5,34 @@ open Ds2.Core
 open Ds2.Core.Store
 
 
-let arrowKey (sourceId: Guid) (targetId: Guid) (arrowType: ArrowType) =
-    struct (sourceId, targetId, arrowType)
+// ─── 같은 연결 판정 ─────────────────────────────────────────────────────────────
+// 한 노드 쌍에는 같은 연결을 하나만 둔다. 다른 종류는 같은 쌍에 더 그을 수 있다(Start 가 있어도 Reset 은 된다).
+// 새 연결·재연결·방향 전환·상호 리셋이 모두 이 판정을 쓴다.
 
-let arrowKeyOf (arrow: #DsArrow) =
-    arrowKey arrow.SourceId arrow.TargetId arrow.ArrowType
+/// A(sourceA→targetA, typeA) 와 B 가 같은 연결인지.
+///   - 같은 방향 같은 종류
+///   - 같은 방향 Start · StartReset — 둘 다 source 가 끝나면 target 을 시작시킨다
+///   - 방향만 다른 ResetReset — 양방향 리셋이라 A→B 와 B→A 가 같은 화살표다
+let isSameConnection
+    (sourceA: Guid) (targetA: Guid) (typeA: ArrowType)
+    (sourceB: Guid) (targetB: Guid) (typeB: ArrowType) : bool =
+    let startsTarget t = t = ArrowType.Start || t = ArrowType.StartReset
+    let sameDirection = sourceA = sourceB && targetA = targetB
+    let reversed = sourceA = targetB && targetA = sourceB
+    (sameDirection && (typeA = typeB || (startsTarget typeA && startsTarget typeB)))
+    || (reversed && typeA = ArrowType.ResetReset && typeB = ArrowType.ResetReset)
 
-let hasArrowKeyExcept
-    (expectedKey: struct(Guid * Guid * ArrowType))
-    (exceptId: Guid option)
-    (arrows: seq<#DsArrow>) =
+/// arrows 중 isExcluded 가 아닌 화살표에 sourceId→targetId(arrowType) 와 같은 연결이 있는지.
+let hasSameConnection
+    (isExcluded: Guid -> bool)
+    (sourceId: Guid) (targetId: Guid) (arrowType: ArrowType)
+    (arrows: seq<#DsArrow>) : bool =
     arrows
     |> Seq.exists (fun arrow ->
-        exceptId <> Some arrow.Id &&
-        arrowKeyOf arrow = expectedKey)
+        not (isExcluded arrow.Id)
+        && isSameConnection arrow.SourceId arrow.TargetId arrow.ArrowType sourceId targetId arrowType)
+
+let private noneExcluded (_: Guid) = false
 
 // ─── Call 화살표 순환 금지 ───────────────────────────────────────────────────
 // Call 그래프는 모든 화살표 종류를 통틀어 순환이 없어야 한다. 순환이 생기면 critical path 계산(Queries.tryGetDeviceDurationMs)
@@ -119,17 +133,6 @@ let orderedArrowLinksForSelection
         distinctIds
         |> List.choose resolveOrderedNodeContext
 
-    // 기존 화살표를 (Source, Target, ArrowType)으로 프리빌드 — 동일 타입만 중복 제외
-    let existingWorkArrows =
-        Queries.allArrowWorks store
-        |> List.map arrowKeyOf
-        |> System.Collections.Generic.HashSet
-
-    let existingCallArrows =
-        Queries.allArrowCalls store
-        |> List.map arrowKeyOf
-        |> System.Collections.Generic.HashSet
-
     orderedContexts
     |> List.pairwise
     |> List.choose (fun ((sourceType, sourceParent, sourceId), (targetType, targetParent, targetId)) ->
@@ -140,11 +143,18 @@ let orderedArrowLinksForSelection
         else
             match sourceType with
             | EntityKind.Work when sourceParent = targetParent ->
-                // 같은 System에 속한 Work끼리만 연결, 동일 소스+타겟+타입만 중복
-                if existingWorkArrows.Contains(arrowKey sourceId targetId arrowType) then None
+                // 같은 System에 속한 Work끼리만 연결, 같은 연결(isSameConnection)이 이미 있으면 제외
+                if Queries.arrowWorksOf sourceParent store |> hasSameConnection noneExcluded sourceId targetId arrowType then None
                 else Some (sourceType, sourceParent, sourceId, targetId)
             | EntityKind.Call when sourceParent = targetParent ->
-                // 같은 Work에 속한 Call끼리만 연결, 동일 소스+타겟+타입만 중복
-                if existingCallArrows.Contains(arrowKey sourceId targetId arrowType) then None
+                // 같은 Work에 속한 Call끼리만 연결, 같은 연결이 이미 있으면 제외
+                if Queries.arrowCallsOf sourceParent store |> hasSameConnection noneExcluded sourceId targetId arrowType then None
                 else Some (sourceType, sourceParent, sourceId, targetId)
             | _ -> None)
+
+/// 선택 순서로 새로 이을 수 있는 화살표 종류 — 이을 쌍이 하나라도 남은 종류만. 비면 이을 것이 없다.
+/// 연결 메뉴를 띄울지와 메뉴에서 어떤 종류를 켤지를 정한다(Start 가 이미 있어도 Reset 등은 남는다).
+let connectableArrowTypesForSelection (store: DsStore) (orderedNodeIds: seq<Guid>) : ArrowType list =
+    let ids = Seq.toList orderedNodeIds
+    EntityKindRules.availableArrowTypes true
+    |> List.filter (fun arrowType -> not (orderedArrowLinksForSelection store ids arrowType).IsEmpty)

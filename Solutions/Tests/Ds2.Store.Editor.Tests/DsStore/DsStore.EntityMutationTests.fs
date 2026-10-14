@@ -527,17 +527,29 @@ module ArrowTests =
         let arrow = store.ArrowWorks.Values |> Seq.head
         Assert.Equal(system.Id, arrow.ParentId)
 
+
+    /// 같은 쌍에 Start 가 있어도 다른 종류는 더 그을 수 있다. 막는 것은 같은 연결뿐이다 — 같은 방향 Start · StartReset,
+    /// 방향만 다른 ResetReset. 예전엔 연결 메뉴가 Start 기준으로만 따져, Start 가 있는 쌍은 어떤 종류도 그을 수 없었다.
     [<Fact>]
-    let ``ConnectSelectionInOrder allows different ArrowType between same nodes`` () =
+    let ``ConnectSelectionInOrder blocks only the same connection between same nodes`` () =
         let store = createStore ()
         let _, _, flow, work1 = setupBasicHierarchy store
         let work2 = addWork store "W2" flow.Id
-        let count1 = store.ConnectSelectionInOrder([ work1.Id; work2.Id ], ArrowType.Start)
-        Assert.Equal(1, count1)
-        // 같은 소스/타겟이지만 다른 타입 → 허용
-        let count2 = store.ConnectSelectionInOrder([ work1.Id; work2.Id ], ArrowType.Reset)
-        Assert.Equal(1, count2)
-        Assert.Equal(2, store.ArrowWorks.Count)
+        let connect ids arrowType = store.ConnectSelectionInOrder(ids, arrowType)
+        Assert.Equal(1, connect [ work1.Id; work2.Id ] ArrowType.Start)
+
+        Assert.Equal<ArrowType list>(
+            [ ArrowType.Reset; ArrowType.ResetReset; ArrowType.Group ],
+            ConnectionQueries.connectableArrowTypesForSelection store [ work1.Id; work2.Id ])
+        Assert.Equal(0, connect [ work1.Id; work2.Id ] ArrowType.StartReset)
+        Assert.Equal(1, connect [ work1.Id; work2.Id ] ArrowType.Reset)
+        Assert.Equal(1, connect [ work1.Id; work2.Id ] ArrowType.ResetReset)
+        Assert.Equal(0, connect [ work2.Id; work1.Id ] ArrowType.ResetReset)
+        // 반대 방향 StartReset 은 work1 을 시작시키는 다른 연결 — 허용. 뒤집으면 기존 Start 와 같은 연결이라 거절.
+        Assert.Equal(1, connect [ work2.Id; work1.Id ] ArrowType.StartReset)
+        let backward = store.ArrowWorks.Values |> Seq.find (fun a -> a.ArrowType = ArrowType.StartReset)
+        Assert.False(store.ReverseArrow(backward.Id))
+        Assert.Equal(4, store.ArrowWorks.Count)
 
     [<Fact>]
     let ``ConnectSelectionInOrder blocks same ArrowType between same nodes`` () =

@@ -126,6 +126,19 @@ public class SelectionState
     public bool CanConnectSelectedNodesInOrder() =>
         TryGetOrderedConnectLinks(out _);
 
+    /// <summary>선택 순서로 새로 이을 수 있는 화살표 종류. 이미 같은 연결이 있는 종류는 빠진다.</summary>
+    public IReadOnlyCollection<ArrowType> ConnectableArrowTypes()
+    {
+        if (_orderedNodeSelection.Count < 2)
+            return Array.Empty<ArrowType>();
+
+        return _host.TryRef(
+                () => ConnectionQueries.connectableArrowTypesForSelection(Store, _orderedNodeSelection.Select(s => s.Id)),
+                out var types)
+            ? types.ToArray()
+            : Array.Empty<ArrowType>();
+    }
+
     public bool ConnectSelectedNodesInOrder(ArrowType arrowType)
     {
         if (_orderedNodeSelection.Count < 2)
@@ -150,12 +163,19 @@ public class SelectionState
             return false;
 
         if (created <= 0)
+        {
+            _host.SetStatusText(SameConnectionStatus);
             return false;
+        }
 
         _host.SetStatusText($"Connected {created} arrow(s) from ordered selection.");
         return true;
     }
 
+    internal const string SameConnectionStatus = "이미 같은 연결이 있어 새 화살표를 만들지 않았습니다.";
+
+    /// <summary>이을 수 있는 종류 중 첫 종류의 연결 목록 — 연결 메뉴를 띄울지와 노드 종류를 정한다.
+    /// 예전엔 Start 로만 따져, Start 가 이미 있는 쌍은 Reset 같은 다른 종류도 메뉴가 꺼졌다.</summary>
     private bool TryGetOrderedConnectLinks(out FSharpList<System.Tuple<EntityKind, Guid, Guid, Guid>> links)
     {
         links = FSharpList<System.Tuple<EntityKind, Guid, Guid, Guid>>.Empty;
@@ -163,8 +183,13 @@ public class SelectionState
         if (_orderedNodeSelection.Count < 2)
             return false;
 
+        var types = ConnectableArrowTypes();
+        if (types.Count == 0)
+            return false;
+
+        var firstType = types.First();
         if (!_host.TryRef(
-                () => ConnectionQueries.orderedArrowLinksForSelection(Store, _orderedNodeSelection.Select(s => s.Id), ArrowType.Start),
+                () => ConnectionQueries.orderedArrowLinksForSelection(Store, _orderedNodeSelection.Select(s => s.Id), firstType),
                 out var resolvedLinks))
             return false;
 
