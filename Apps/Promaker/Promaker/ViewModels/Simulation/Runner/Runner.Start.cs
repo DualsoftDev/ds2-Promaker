@@ -45,21 +45,16 @@ public partial class SimulationPanelState
                 }
             }
 
-            // v10 §12 — ApiDef/ApiCall V1~V6 invariant 점검. Error 면 시뮬 시작 중단, Warning 은 로그.
-            // 가상 시뮬레이션이라 실 I/O 신호가 불필요 — V1(Real⇒OutTag)/V2(Real⇒InTag) invariant 를 면제해
-            // I/O 미설정 모델도 시뮬 가능하게 연다.
-            var v10Issues = V10ValidationBatch.validateStore(Store);
-            var v10Errors = v10Issues
-                .Where(i => i.Severity.IsError)
-                .Where(i => i.Rule != "V1" && i.Rule != "V2")
-                .ToList();
-            var v10Warnings = v10Issues.Where(i => i.Severity.IsWarning).ToList();
-            foreach (var w in v10Warnings)
-                AddSimLog($"[v10 {w.Rule}] {w.Message}", LogSeverity.Warn);
+            // v10 §12 — ApiDef/ApiCall invariant 점검. Error 면 시뮬 시작 중단, Warning 은 로그.
+            // 기준은 파일 열기와 같은 오프라인 정책(V1/V2 면제) — Services.V10OfflinePolicy.
+            var v10 = Services.V10OfflinePolicy.Evaluate(Store);
+            var v10Errors = v10.Errors;
+            foreach (var w in v10.Warnings)
+                AddSimLog(Services.V10OfflinePolicy.Format(w), LogSeverity.Warn);
             if (v10Errors.Count > 0)
             {
                 foreach (var e in v10Errors)
-                    AddSimLog($"[v10 {e.Rule}] {e.Message}", LogSeverity.Error);
+                    AddSimLog(Services.V10OfflinePolicy.Format(e), LogSeverity.Error);
                 _setStatusText($"v10 모델 검증 실패: Error {v10Errors.Count}건 — 시뮬 시작 중단");
                 return;
             }

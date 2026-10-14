@@ -44,10 +44,6 @@ public partial class App : Application
         System.Diagnostics.PresentationTraceSources.DataBindingSource.Switch.Level =
             System.Diagnostics.SourceLevels.Critical;
 
-        // AAStoPLC.TagWizard 의 모든 family preset 자동 등록 (idempotent).
-        // 새 family 추가 시 Bootstrap.fs 의 ensureRegistered 안에서 처리 — startup 무수정.
-        AAStoPLC.TagWizard.Bootstrap.EnsureRegistered();
-
         for (int i = 0; i < e.Args.Length; i++)
         {
             var arg = e.Args[i];
@@ -108,6 +104,24 @@ public partial class App : Application
                 MessageBoxImage.Error);
             args.Handled = false;
         };
+
+        // AAStoPLC.TagWizard 의 모든 family preset 자동 등록 (idempotent). 외부 DLL(ExternalDlls) 로드가 여기서
+        // 처음 일어난다 — 로깅과 fatal 핸들러가 준비된 뒤에 호출해야 실패가 로그에 남는다
+        // (Ds2.Core 어셈블리 버전 바인딩 실패로 흔적 없이 죽던 사고).
+        try
+        {
+            AAStoPLC.TagWizard.Bootstrap.EnsureRegistered();
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal("AAStoPLC.TagWizard bootstrap failed — 외부 DLL(ExternalDlls) 로드 실패", ex);
+            MessageBox.Show(
+                $"필수 구성요소(AAStoPLC)를 불러오지 못해 Promaker 를 시작할 수 없습니다.\n\n{ex.Message}",
+                "Promaker 시작 실패",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            throw;
+        }
 
         ThemeManager.ApplySavedTheme();
 

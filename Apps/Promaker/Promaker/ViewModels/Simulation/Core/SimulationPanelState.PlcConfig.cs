@@ -101,8 +101,8 @@ public partial class SimulationPanelState
     }
 
     /// <summary>System 속성 패널(PLC 연결 섹션)에서 편집한 접속을 그 System 의 AID endpoint 에 저장.
-    /// AID 는 AASX 로 저장되는 모델 데이터이므로 성공 시 dirty 마킹.
-    /// Mitsubishi 는 AID 표현이 없어 저장할 곳이 없다 — Core 가 false 를 돌려준다.</summary>
+    /// AID 는 AASX 로 저장되는 모델 데이터이므로 성공 시 dirty 마킹. 주소가 0개여도 접속 정보는 저장된다.
+    /// 요청이 성립하지 않으면(비-LS 벤더, 빈 IP 등) Core 가 false 를 돌려주고 모델은 그대로다.</summary>
     public bool SavePlcEndpointForSystem(
         Guid systemId, PlcVendorChoice vendor, PlcVendorProfile profile,
         string? sxIoMapPath, IEnumerable<string>? sxWritableAreas)

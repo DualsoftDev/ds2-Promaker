@@ -21,7 +21,7 @@ namespace Promaker.ViewModels;
 ///
 /// * LS(XGI/XGK/XGB) → AID InterfaceXGT endpoint, MICREX-SX → AID InterfaceMicrexSx endpoint
 ///   (SavePlcEndpointForSystem → store 기록 → 파일 저장 시 AASX 에 실림)
-/// * Mitsubishi → AID 표현이 없어 저장할 곳이 없다(수집기는 게이트웨이를 AID 에서만 조립한다).
+/// * Mitsubishi 는 AID 표현이 없어 저장할 곳이 없으므로 목록에서 뺀다(수집기는 게이트웨이를 AID 에서만 조립한다).
 ///
 /// 접속 매체(Ethernet TCP/UDP · USB)와 USB 장치 조회는 SystemPlcPanel.Usb.cs 에 있다.
 /// </summary>
@@ -38,8 +38,6 @@ public partial class PropertyPanelState
     [ObservableProperty] private int _plcTimeoutMs = 3000;
     [ObservableProperty] private int _plcScanIntervalMs = 100;
     [ObservableProperty] private bool _plcLocalEthernet = true;
-    [ObservableProperty] private int _plcNetworkNumber;
-    [ObservableProperty] private int _plcStationNumber = 0xFF;
     [ObservableProperty] private bool _isPlcDirty;
 
     // ── MICREX-SX 전용 입력 ────────────────────────────────────────────────
@@ -76,24 +74,24 @@ public partial class PropertyPanelState
         }
     }
 
+    /// <summary>화면에서 고를 수 있는 벤더 — AID 로 표현되는 것만(LS 3종 + MICREX-SX).</summary>
     public IReadOnlyList<PlcVendorChoice> PlcVendorChoices { get; } =
-        (PlcVendorChoice[])Enum.GetValues(typeof(PlcVendorChoice));
+        ((PlcVendorChoice[])Enum.GetValues(typeof(PlcVendorChoice)))
+            .Where(v => PlcVendorProfile.IsAidXgtVendor(v) || v == PlcVendorChoice.MicrexSx)
+            .ToList();
 
-    public bool IsPlcVendorMx => PlcVendor == PlcVendorChoice.Mitsubishi;
     public bool IsPlcVendorSx => PlcVendor == PlcVendorChoice.MicrexSx;
     public bool IsPlcVendorLs =>
         PlcVendorProfile.IsAidXgtVendor(PlcVendor);
 
     public string SystemPlcHeader =>
-        // Mitsubishi 는 아직 AID 표현이 없어 AASX 에 실리지 않는다. SX 는 InterfaceMicrexSx 로 실린다.
-        IsPlcVendorMx       ? $"PLC 연결 · {PlcVendor} ⚠ AID 미지원 · 주소 {PlcAddressCount}개"
-        : PlcIsLegacyEndpoint ? $"PLC 연결 · 구버전 — 저장 시 이 System 에 귀속 · 주소 {PlcAddressCount}개"
+        PlcIsLegacyEndpoint ? $"PLC 연결 · 구버전 — 저장 시 이 System 에 귀속 · 주소 {PlcAddressCount}개"
         : PlcHasEndpoint    ? $"PLC 연결 · 주소 {PlcAddressCount}개"
                             : $"PLC 연결 · ⚠ 미지정 · 주소 {PlcAddressCount}개";
 
     /// <summary>패널 로드 시 원본 스냅샷 — dirty 판정 기준. Refresh 중 재발화 방지용 suppress 와 짝.</summary>
     private (PlcVendorChoice Vendor, string Ip, int Port, int Timeout, int Scan,
-             bool Eth, int Net, int Stn, string Transport, string UsbSelector) _plcOriginal;
+             bool Eth, string Transport, string UsbSelector) _plcOriginal;
     /// <summary>SX 전용 값의 원본 스냅샷.</summary>
     private (string IoMap, bool WriteAllow) _plcSxOriginal;
     private bool _suppressPlcDirty;
@@ -110,8 +108,6 @@ public partial class PropertyPanelState
             || PlcTimeoutMs != _plcOriginal.Timeout
             || PlcScanIntervalMs != _plcOriginal.Scan
             || PlcLocalEthernet != _plcOriginal.Eth
-            || PlcNetworkNumber != _plcOriginal.Net
-            || PlcStationNumber != _plcOriginal.Stn
             || !string.Equals(PlcTransport, _plcOriginal.Transport, StringComparison.OrdinalIgnoreCase)
             || !string.Equals((PlcUsbDeviceSelector ?? "").Trim(), _plcOriginal.UsbSelector, StringComparison.Ordinal)
             || (IsPlcVendorSx && SxSettingsChanged());
@@ -123,11 +119,10 @@ public partial class PropertyPanelState
 
     partial void OnPlcVendorChanged(PlcVendorChoice value)
     {
-        OnPropertyChanged(nameof(IsPlcVendorMx));
         OnPropertyChanged(nameof(IsPlcVendorSx));
         OnPropertyChanged(nameof(IsPlcVendorLs));
         OnPropertyChanged(nameof(SystemPlcHeader));
-        // 벤더마다 고를 수 있는 연결 방식이 다르다(UDP 는 Mitsubishi, USB 는 LS).
+        // 벤더마다 고를 수 있는 연결 방식이 다르다(USB 는 LS 전용).
         RefreshPlcTransportChoices();
 
         // 벤더를 바꿨는데 포트가 그대로면 틀린 포트로 붙는다 — SX 를 골라도 LS 의 2004 가
@@ -146,8 +141,6 @@ public partial class PropertyPanelState
     partial void OnPlcTimeoutMsChanged(int value) => UpdatePlcDirty();
     partial void OnPlcScanIntervalMsChanged(int value) => UpdatePlcDirty();
     partial void OnPlcLocalEthernetChanged(bool value) => UpdatePlcDirty();
-    partial void OnPlcNetworkNumberChanged(int value) => UpdatePlcDirty();
-    partial void OnPlcStationNumberChanged(int value) => UpdatePlcDirty();
     partial void OnPlcSxIoMapPathChanged(string value) => UpdatePlcDirty();
     partial void OnPlcSxWriteAllowChanged(bool value)
     {
@@ -198,8 +191,6 @@ public partial class PropertyPanelState
                 PlcTimeoutMs = sxConn.TimeoutMs > 0 ? sxConn.TimeoutMs : 3000;
                 PlcScanIntervalMs = sxConn.ScanIntervalMs > 0 ? sxConn.ScanIntervalMs : 100;
                 PlcLocalEthernet = true;
-                PlcNetworkNumber = 0;
-                PlcStationNumber = 0;
                 PlcTransport = PlcTransports.Tcp;
                 PlcUsbDeviceSelector = string.Empty;
             }
@@ -214,8 +205,6 @@ public partial class PropertyPanelState
                 PlcTimeoutMs = conn.TimeoutMs > 0 ? conn.TimeoutMs : 3000;
                 PlcScanIntervalMs = conn.ScanIntervalMs > 0 ? conn.ScanIntervalMs : 100;
                 PlcLocalEthernet = conn.LocalEthernet;
-                PlcNetworkNumber = conn.NetworkNumber;
-                PlcStationNumber = conn.StationNumber;
                 PlcTransport = PlcTransports.Normalize(conn.Transport);
                 PlcUsbDeviceSelector = conn.UsbDeviceSelector;
             }
@@ -232,8 +221,6 @@ public partial class PropertyPanelState
                 PlcTimeoutMs = defaults.TimeoutMs;
                 PlcScanIntervalMs = defaults.ScanIntervalMs;
                 PlcLocalEthernet = defaults.LocalEthernet;
-                PlcNetworkNumber = defaults.NetworkNumber;
-                PlcStationNumber = defaults.StationNumber;
                 PlcTransport = defaults.Transport;
                 PlcUsbDeviceSelector = defaults.UsbDeviceSelector;
             }
@@ -249,8 +236,7 @@ public partial class PropertyPanelState
             OnPropertyChanged(nameof(PlcSxWriteSummary));
 
             _plcOriginal = (PlcVendor, (PlcIpAddress ?? "").Trim(), PlcPort, PlcTimeoutMs,
-                            PlcScanIntervalMs, PlcLocalEthernet, PlcNetworkNumber,
-                            PlcStationNumber, PlcTransport, (PlcUsbDeviceSelector ?? "").Trim());
+                            PlcScanIntervalMs, PlcLocalEthernet, PlcTransport, (PlcUsbDeviceSelector ?? "").Trim());
             // 구버전 endpoint 는 값 동일해도 귀속(claim) 커밋이 남아 있어 저장 버튼을 열어 둔다.
             IsPlcDirty = PlcIsLegacyEndpoint;
             // 매체 값이 직전 System 과 같으면 OnPlcTransportChanged 가 안 돌아 안내 줄이 남의 System 것으로 남는다.
@@ -346,12 +332,8 @@ public partial class PropertyPanelState
             _host.ShowWarning("Timeout/Scan(ms) 은 양의 정수여야 합니다.");
             return;
         }
-        if (PlcNetworkNumber is < 0 or > 255 || PlcStationNumber is < 0 or > 255)
-        {
-            _host.ShowWarning("Network/Station No. 는 0–255 범위여야 합니다.");
-            return;
-        }
 
+        var defaults = PlcVendorProfile.Defaults(PlcVendor);
         var profile = new PlcVendorProfile
         {
             Name = systemNode.Name,
@@ -360,8 +342,9 @@ public partial class PropertyPanelState
             TimeoutMs = PlcTimeoutMs,
             ScanIntervalMs = PlcScanIntervalMs,
             LocalEthernet = PlcLocalEthernet,
-            NetworkNumber = (byte)PlcNetworkNumber,
-            StationNumber = (byte)PlcStationNumber,
+            // Network/Station 번호는 Mitsubishi 전용 축이라 화면에 없다 — 벤더 기본값으로 채운다.
+            NetworkNumber = defaults.NetworkNumber,
+            StationNumber = defaults.StationNumber,
             Transport = PlcTransport,
             UsbDeviceSelector = usbSelector,
         };
@@ -369,10 +352,7 @@ public partial class PropertyPanelState
         if (!_host.Simulation.SavePlcEndpointForSystem(
                 systemNode.Id, PlcVendor, profile, (PlcSxIoMapPath ?? "").Trim(), SxWritableAreas()))
         {
-            _host.ShowWarning(
-                IsPlcVendorMx
-                    ? "Mitsubishi 는 AID 표현이 없어 AASX 에 저장할 수 없습니다."
-                    : "PLC 접속 저장에 실패했습니다. 입력값을 확인하세요.");
+            _host.ShowWarning("PLC 접속 저장에 실패했습니다. 벤더와 IP:포트(USB 는 장치 선택 키)를 확인하세요.");
             return;
         }
 

@@ -17,14 +17,9 @@ namespace Promaker.ViewModels;
 
 public partial class MainViewModel
 {
-    private const string FileFilter =
-        "All Supported (*.sdf;*.json;*.aasx;*.md;*.mmd;*.yaml;*.yml)|*.sdf;*.json;*.aasx;*.md;*.mmd;*.yaml;*.yml|SDF Files (*.sdf)|*.sdf|JSON Files (*.json)|*.json|AASX Files (*.aasx)|*.aasx|Mermaid Files (*.md;*.mmd)|*.md;*.mmd|YAML Files — lossy 공유 포맷 (*.yaml;*.yml)|*.yaml;*.yml";
-
-    /// <summary>
-    /// `.yaml` Open 직후 AfterFileLoad 가 IsDirty=false 로 덮어쓰지 않도록 lossy 표식.
-    /// CompleteOpen→AfterFileLoad chain 의 마지막에 IsDirty=true 강제 후 즉시 reset.
-    /// </summary>
-    private bool _loadedAsLossy;
+    /// <summary>열기/저장 대화상자 필터. 열 수 있는 형식이 여기와 FileDrop.SupportedExtensions 두 곳에 있다 — 같이 고친다.</summary>
+    internal const string FileFilter =
+        "All Supported (*.sdf;*.json;*.aasx;*.md;*.mmd)|*.sdf;*.json;*.aasx;*.md;*.mmd|SDF Files (*.sdf)|*.sdf|JSON Files (*.json)|*.json|AASX Files (*.aasx)|*.aasx|Mermaid Files (*.md;*.mmd)|*.md;*.mmd";
 
     private bool TryRunFileOperation(string operation, Action action, Func<Exception, string> warnMessage)
     {
@@ -36,6 +31,8 @@ public partial class MainViewModel
         catch (Exception ex)
         {
             Log.Error($"{operation} failed", ex);
+            // 경고는 모달이다 — 바쁨 오버레이("로딩 중...")를 먼저 내려야 경고 뒤에 스피너가 남지 않는다.
+            IsBusy = false;
             _dialogService.ShowWarning(warnMessage(ex));
             return false;
         }
@@ -47,6 +44,7 @@ public partial class MainViewModel
     {
         if (result.IsError)
         {
+            IsBusy = false;
             _dialogService.ShowWarning(formatError(result.ErrorValue));
             value = default!;
             return false;
@@ -146,8 +144,9 @@ public partial class MainViewModel
         if (!File.Exists(filePath))
         {
             _dialogService.ShowWarning($"파일을 찾을 수 없습니다:\n{filePath}");
-            // 목록에서 제거
+            // 목록에서 제거 — 화면과 저장 파일 둘 다. 시작 시 존재 검사를 하지 않으므로 여기가 유일한 정리 지점이다.
             RecentFiles.Remove(filePath);
+            RecentFilesManager.RemoveRecentFile(filePath);
             return;
         }
 

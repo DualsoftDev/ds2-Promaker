@@ -35,7 +35,7 @@
                                Foreground="{DynamicResource SecondaryTextBrush}"/>
                     <Button Grid.Column="1"
                             Content="저장"
-                            ToolTip="LS·SX 벤더: 이 System 의 AID endpoint 에 저장(파일 저장 시 AASX 에 기록) · Mitsubishi: 전역 PLC 연결에 저장"
+                            ToolTip="이 System 의 AID endpoint 에 저장 (파일 저장 시 AASX 에 기록)"
                             Style="{StaticResource InlineListButton}"
                             Command="{Binding ApplySystemPlcCommand}"
                             IsEnabled="{Binding IsPlcDirty}"/>
@@ -139,30 +139,6 @@
                           Visibility="{Binding IsPlcLsEthernet, Converter={StaticResource BoolToVis}}"
                           IsChecked="{Binding PlcLocalEthernet}"
                           ToolTip="체크 해제 시 FEnet 모듈"/>
-
-                <!-- MX 전용 -->
-                <Grid Margin="0,6,0,0"
-                      Visibility="{Binding IsPlcVendorMx, Converter={StaticResource BoolToVis}}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="8"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Text="Network No." FontSize="10"
-                                   Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,2"/>
-                        <TextBox Text="{Binding PlcNetworkNumber, UpdateSourceTrigger=PropertyChanged}"
-                                 Padding="4,2" FontSize="11"
-                                 ToolTip="기본 0 (자국)"/>
-                    </StackPanel>
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Text="Station No." FontSize="10"
-                                   Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,0,0,2"/>
-                        <TextBox Text="{Binding PlcStationNumber, UpdateSourceTrigger=PropertyChanged}"
-                                 Padding="4,2" FontSize="11"
-                                 ToolTip="기본 255 (자국 CPU, hex FF)"/>
-                    </StackPanel>
-                </Grid>
 
                 <!-- SX 전용 — AID InterfaceMicrexSx endpoint 에 저장된다(AASX 에 실림).
                      Ds2.Hub 는 게이트웨이를 AID 에서만 조립하므로, 이 값들이

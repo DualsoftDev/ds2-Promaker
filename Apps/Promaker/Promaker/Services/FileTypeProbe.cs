@@ -17,7 +17,4 @@ internal static class FileTypeProbe
 
     public static bool IsMermaid(string path) =>
         HasExtension(path, FileExtensions.Mermaid) || HasExtension(path, FileExtensions.MermaidAlt);
-
-    public static bool IsYaml(string path) =>
-        HasExtension(path, FileExtensions.Yaml) || HasExtension(path, FileExtensions.YamlAlt);
 }

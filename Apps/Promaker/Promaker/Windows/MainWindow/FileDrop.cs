@@ -9,8 +9,9 @@ namespace Promaker;
 
 public partial class MainWindow
 {
-    private static readonly string[] SupportedExtensions =
-        [FileExtensions.Sdf, FileExtensions.Json, FileExtensions.Aasx, FileExtensions.Mermaid, FileExtensions.MermaidAlt, FileExtensions.Yaml, FileExtensions.YamlAlt];
+    /// <summary>드롭으로 열 수 있는 형식 — MainViewModel.FileFilter 와 같이 고친다.</summary>
+    internal static readonly string[] SupportedExtensions =
+        [FileExtensions.Sdf, FileExtensions.Json, FileExtensions.Aasx, FileExtensions.Mermaid, FileExtensions.MermaidAlt];
 
     private bool IsSupportedFileDrop(DragEventArgs e) =>
         e.Data.GetDataPresent(DataFormats.FileDrop)
@@ -34,7 +35,6 @@ public partial class MainWindow
         if (ext == FileExtensions.Json) return "json";
         if (ext == FileExtensions.Aasx) return "aasx";
         if (ext == FileExtensions.Mermaid || ext == FileExtensions.MermaidAlt) return "mermaid";
-        if (ext == FileExtensions.Yaml || ext == FileExtensions.YamlAlt) return "yaml";
         return null;
     }
 
@@ -132,8 +132,7 @@ public partial class MainWindow
         DragDropJsonIcon.Visibility = Visibility.Collapsed;
         DragDropAasxIcon.Visibility = Visibility.Collapsed;
         DragDropMermaidIcon.Visibility = Visibility.Collapsed;
-        DragDropYamlIcon.Visibility = Visibility.Collapsed;
-
+        
         switch (fileType)
         {
             case "sdf":
@@ -155,11 +154,6 @@ public partial class MainWindow
                 DragDropMermaidIcon.Visibility = Visibility.Visible;
                 DragDropMessage.Text = "Mermaid 파일을 여기에 놓으세요";
                 DragDropSubMessage.Text = "Mermaid 다이어그램 형식";
-                break;
-            case "yaml":
-                DragDropYamlIcon.Visibility = Visibility.Visible;
-                DragDropMessage.Text = "YAML 파일을 여기에 놓으세요";
-                DragDropSubMessage.Text = "lossy 공유 포맷 (GUID·위치 비저장)";
                 break;
         }
     }

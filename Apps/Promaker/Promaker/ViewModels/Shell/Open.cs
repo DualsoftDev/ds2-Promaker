@@ -41,7 +41,7 @@ public partial class MainViewModel
     {
         _store.ReplaceStore(store);
         // 레거시 파일 자동 복구 — OriginFlowId 누락 ApiCall 을 Call→Work→Flow 로 채움.
-        // YAML/JSON apply 경로 (ToolOperations.queueAddCall) 는 OriginFlowId 를 명시 set 하므로
+        // JSON apply 경로 (ToolOperations.queueAddCall) 는 OriginFlowId 를 명시 set 하므로
         // 정상 흐름에서 healed=0. healed>0 면 dispatcher 갭 또는 외부 손상 파일 — silent 데이터
         // 변형 가시성을 위해 Warn 격상 (가시 dialog 까지는 over-spec, 로그 검토 책임).
         var healed = Ds2.Core.CallValidation.healMissingOriginFlowIds(_store);
@@ -105,8 +105,6 @@ public partial class MainViewModel
 
     private void OpenFilePathCore(string fileName)
     {
-        _loadedAsLossy = false;
-
         if (FileTypeProbe.IsMermaid(fileName))
         {
             TryRunFileOperation(
@@ -134,22 +132,26 @@ public partial class MainViewModel
                     if (result.IsError)
                     {
                         Log.Warn($"AASX open failed: {result.ErrorValue}");
+                        IsBusy = false;
                         _dialogService.ShowWarning($"AASX 파일 열기 실패:\n\n{result.ErrorValue}");
                         return;
                     }
 
                     PrepareForLoadedStore();
 
-                    // v10 §12 — 임포트된 모델 V1~V6 검증. 위반 있으면 경고 표시 (임포트 자체는 진행).
-                    var v10Issues = V10ValidationBatch.validateStore(_store);
-                    if (v10Issues.Length > 0)
+                    // v10 §12 — 임포트된 모델 검증. 시뮬 시작과 같은 오프라인 기준(V1/V2 면제): Warning 은 로그만,
+                    // Error 만 대화상자로. 임포트 자체는 진행한다.
+                    var verdict = V10OfflinePolicy.Evaluate(_store);
+                    foreach (var w in verdict.Warnings)
+                        Log.Warn("AASX v10: " + V10OfflinePolicy.Format(w));
+                    if (verdict.Errors.Count > 0)
                     {
-                        var lines = v10Issues.Select(i => $"[v10 {i.Rule}] {i.Message}").ToList();
+                        var lines = verdict.Errors.Select(V10OfflinePolicy.Format).ToList();
                         Log.Warn("AASX v10 검증 위반:\n" + string.Join("\n", lines));
                         var preview = string.Join("\n", lines.Take(20));
-                        var suffix = v10Issues.Length > 20 ? $"\n... (총 {v10Issues.Length}건 — 로그 확인)" : "";
+                        var suffix = lines.Count > 20 ? $"\n... (총 {lines.Count}건 — 로그 확인)" : "";
                         _dialogService.ShowWarning(
-                            $"AASX 임포트 — v10 검증 위반 {v10Issues.Length}건:\n\n{preview}{suffix}");
+                            $"AASX 임포트 — v10 검증 위반 {lines.Count}건:\n\n{preview}{suffix}");
                     }
 
                     CompleteOpen(fileName, "AASX");
@@ -193,14 +195,6 @@ public partial class MainViewModel
         // undo 항목을 생성할 수 있으므로, 로드 완료 후 초기 상태로 확정
         _store.ClearHistory();
         IsDirty = false;
-
-        // YAML lossy 재구성 — 시뮬 결과·position·alias 잃음. 사용자에게 "영구 보존은 .sdf SaveAs" 시그널.
-        // CompleteOpen→AfterFileLoad 가 IsDirty=false 로 덮어쓰는 race 의 후속 정정.
-        if (_loadedAsLossy)
-        {
-            IsDirty = true;
-            _loadedAsLossy = false;
-        }
 
         UpdateTitle();
     }

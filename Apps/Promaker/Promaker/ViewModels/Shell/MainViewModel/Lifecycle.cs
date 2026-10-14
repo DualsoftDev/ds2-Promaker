@@ -68,8 +68,8 @@ public partial class MainViewModel
         if (!ConfirmDiscardChanges())
             return;
 
+        // 결과 상태 표시는 열기 완료 시점의 CompleteOpen 이 한다 — 비동기 열기 전에 "완료" 를 찍으면 실패해도 성공처럼 보인다.
         OpenFilePath(path);
-        StatusText = $"샘플 로드 완료 — {path}";
     }
 
     private void Reset()
@@ -81,7 +81,6 @@ public partial class MainViewModel
 
         _currentFilePath = null;
         FileWatcher.ResetSignature();
-        _loadedAsLossy = false;
         IsDirty = false;
         HasProject = false;
         CanUndo = false;
@@ -144,15 +143,7 @@ public partial class MainViewModel
     {
         var dirty = IsDirty ? " *" : "";
         var file = _currentFilePath is not null ? $" - {System.IO.Path.GetFileName(_currentFilePath)}" : "";
-        // .yaml 저장 경로일 때 silent overwrite UX 위험 차단 — 영구 [YAML, lossy] 배지.
-        // Ctrl+S 반복으로 IsDirty 해제 후에도 사용자가 lossy 의미를 즉시 인지 가능.
-        var ext = _currentFilePath is not null
-            ? System.IO.Path.GetExtension(_currentFilePath)
-            : "";
-        var isYaml = ext.Equals(Promaker.Presentation.FileExtensions.Yaml, System.StringComparison.OrdinalIgnoreCase)
-                     || ext.Equals(Promaker.Presentation.FileExtensions.YamlAlt, System.StringComparison.OrdinalIgnoreCase);
-        var lossyBadge = isYaml ? " [YAML, lossy]" : "";
-        Title = $"{AppInfo.TitleBase}{file}{lossyBadge}{dirty}";
+        Title = $"{AppInfo.TitleBase}{file}{dirty}";
     }
 
     internal void PrepareForLoadedStore()

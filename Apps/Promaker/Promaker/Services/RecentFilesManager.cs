@@ -10,14 +10,17 @@ namespace Promaker.Services;
 /// </summary>
 public static class RecentFilesManager
 {
-    private static readonly string SettingsPath = Path.Combine(
+    /// <summary>목록 파일 경로. 테스트가 임시 경로로 바꿔 쓴다.</summary>
+    internal static string SettingsPath { get; set; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "Dualsoft", "Promaker", "RecentFiles", "recent_files.txt");
 
     private const int MaxRecentFiles = 10;
 
     /// <summary>
-    /// 저장된 최근 파일 목록 로드
+    /// 저장된 최근 파일 목록 로드. 항목의 존재 여부는 여기서 확인하지 않는다 — 끊긴 네트워크 경로의
+    /// File.Exists 는 UI 스레드를 수십 초 멈추고, 잠시 빠진 드라이브의 파일을 목록에서 영구히 지워 버린다.
+    /// 없는 파일은 여는 시점(OpenRecentFile)에 안내하고 RemoveRecentFile 로 정리한다.
     /// </summary>
     public static List<string> LoadRecentFiles()
     {
@@ -29,7 +32,6 @@ public static class RecentFilesManager
             return File.ReadAllLines(SettingsPath)
                 .Where(line => !string.IsNullOrWhiteSpace(line))
                 .Select(line => line.Trim())
-                .Where(File.Exists) // 존재하는 파일만
                 .Take(MaxRecentFiles)
                 .ToList();
         }
@@ -59,6 +61,23 @@ public static class RecentFilesManager
                 recentFiles = recentFiles.Take(MaxRecentFiles).ToList();
 
             SaveRecentFiles(recentFiles);
+        }
+        catch
+        {
+            // Ignore failures
+        }
+    }
+
+    /// <summary>
+    /// 목록에서 한 항목 제거(없는 파일을 열려 했을 때).
+    /// </summary>
+    public static void RemoveRecentFile(string filePath)
+    {
+        try
+        {
+            var recentFiles = LoadRecentFiles();
+            if (recentFiles.Remove(filePath))
+                SaveRecentFiles(recentFiles);
         }
         catch
         {

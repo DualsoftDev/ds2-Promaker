@@ -1,8 +1,8 @@
 using System;
-using System.Diagnostics;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Input;
+using Promaker.Services;
 
 namespace Promaker.Dialogs;
 
@@ -19,6 +19,6 @@ public partial class AboutDialog : Window
 
     private void Url_Click(object sender, MouseButtonEventArgs e)
     {
-        Process.Start(new ProcessStartInfo("https://dualsoft.com") { UseShellExecute = true });
+        ExternalLink.Open("https://dualsoft.com");
     }
 }

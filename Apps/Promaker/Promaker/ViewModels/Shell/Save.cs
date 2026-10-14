@@ -47,9 +47,8 @@ public partial class MainViewModel
             ? Path.GetFileNameWithoutExtension(_currentFilePath)
             : (!projects.IsEmpty ? projects.Head.Name : "project");
 
-        // _currentFilePath 가 .yaml 인 상태에서 SaveAs default 가 .sdf 면 사용자 의도 위반 →
-        // 현 경로 확장자 기준 동적 선택. 신규 프로젝트는 기존대로 .sdf.
-        // SaveFileDialog.DefaultExt 는 점 없는 형식 ("yaml") 기대 — TrimStart('.').
+        // 다른 이름으로 저장의 기본 확장자는 현재 파일을 따른다(.aasx 로 열었으면 .aasx). 신규 프로젝트는 .sdf.
+        // SaveFileDialog.DefaultExt 는 점 없는 형식("sdf") 기대 — TrimStart('.').
         var defaultExt = _currentFilePath is null
             ? FileExtensions.Sdf.TrimStart('.')
             : Path.GetExtension(_currentFilePath).ToLowerInvariant().TrimStart('.');

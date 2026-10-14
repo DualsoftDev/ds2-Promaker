@@ -1,7 +1,7 @@
 using System.Collections.Generic;
-using System.Diagnostics;
 using CommunityToolkit.Mvvm.Input;
 using System.Windows.Input;
+using Promaker.Services;
 
 namespace Promaker.Help;
 
@@ -35,6 +35,6 @@ public static class HelpNavigator
             ? found
             : $"{BaseUrl}/index.html";
 
-        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        ExternalLink.Open(url);
     }
 }
