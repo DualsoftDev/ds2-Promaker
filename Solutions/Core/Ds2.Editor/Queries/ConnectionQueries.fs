@@ -5,24 +5,35 @@ open Ds2.Core
 open Ds2.Core.Store
 
 
-// ─── 같은 연결 판정 ─────────────────────────────────────────────────────────────
-// 한 노드 쌍에는 같은 연결을 하나만 둔다. 다른 종류는 같은 쌍에 더 그을 수 있다(Start 가 있어도 Reset 은 된다).
-// 새 연결·재연결·방향 전환·상호 리셋이 모두 이 판정을 쓴다.
+// ─── 한 쌍에 함께 둘 수 있는 화살표 ──────────────────────────────────────────────
+// 같은 노드 쌍에도 다른 종류는 함께 둔다(Start + Reset, StartReset + ResetReset 등). 함께 둘 수 없는 조합은
+// 같은 계열이라 한쪽이 다른 쪽을 대신하는 경우뿐이다 — 새로 긋거나 종류를 바꾸면 나중에 고른 화살표가 대체하고,
+// 재연결·방향 전환은 그런 조합을 만들면 거절한다.
 
-/// A(sourceA→targetA, typeA) 와 B 가 같은 연결인지.
-///   - 같은 방향 같은 종류
-///   - 같은 방향 Start · StartReset — 둘 다 source 가 끝나면 target 을 시작시킨다
-///   - 방향만 다른 ResetReset — 양방향 리셋이라 A→B 와 B→A 가 같은 화살표다
+/// A(sourceA→targetA, typeA) 와 B 가 같은 화살표인지 — 같은 방향 같은 종류, 또는 방향만 다른 ResetReset
+/// (양방향 리셋이라 A→B 와 B→A 가 같다). 같은 화살표는 새로 만들지 않는다.
 let isSameConnection
     (sourceA: Guid) (targetA: Guid) (typeA: ArrowType)
     (sourceB: Guid) (targetB: Guid) (typeB: ArrowType) : bool =
-    let startsTarget t = t = ArrowType.Start || t = ArrowType.StartReset
-    let sameDirection = sourceA = sourceB && targetA = targetB
-    let reversed = sourceA = targetB && targetA = sourceB
-    (sameDirection && (typeA = typeB || (startsTarget typeA && startsTarget typeB)))
-    || (reversed && typeA = ArrowType.ResetReset && typeB = ArrowType.ResetReset)
+    (sourceA = sourceB && targetA = targetB && typeA = typeB)
+    || (sourceA = targetB && targetA = sourceB && typeA = ArrowType.ResetReset && typeB = ArrowType.ResetReset)
 
-/// arrows 중 isExcluded 가 아닌 화살표에 sourceId→targetId(arrowType) 와 같은 연결이 있는지.
+/// A 와 B 를 한 쌍에 함께 둘 수 없는지 — 같은 화살표이거나 같은 계열.
+///   - Start 계열: 같은 방향 Start · StartReset — 둘 다 source 가 끝나면 target 을 시작시킨다
+///   - Reset 계열: ResetReset 과 같은 쌍의 Reset(방향 무관) — ResetReset 이 양방향 리셋을 이미 한다
+let cannotCoexist
+    (sourceA: Guid) (targetA: Guid) (typeA: ArrowType)
+    (sourceB: Guid) (targetB: Guid) (typeB: ArrowType) : bool =
+    let sameDirection = sourceA = sourceB && targetA = targetB
+    let samePair = sameDirection || (sourceA = targetB && targetA = sourceB)
+    let startFamily t = t = ArrowType.Start || t = ArrowType.StartReset
+    let resetFamily t = t = ArrowType.Reset || t = ArrowType.ResetReset
+    isSameConnection sourceA targetA typeA sourceB targetB typeB
+    || (sameDirection && startFamily typeA && startFamily typeB)
+    || (samePair && resetFamily typeA && resetFamily typeB
+        && (typeA = ArrowType.ResetReset || typeB = ArrowType.ResetReset))
+
+/// arrows 중 isExcluded 가 아닌 화살표에 sourceId→targetId(arrowType) 와 같은 화살표가 있는지.
 let hasSameConnection
     (isExcluded: Guid -> bool)
     (sourceId: Guid) (targetId: Guid) (arrowType: ArrowType)
@@ -31,6 +42,28 @@ let hasSameConnection
     |> Seq.exists (fun arrow ->
         not (isExcluded arrow.Id)
         && isSameConnection arrow.SourceId arrow.TargetId arrow.ArrowType sourceId targetId arrowType)
+
+/// arrows 중 isExcluded 가 아닌 화살표에 sourceId→targetId(arrowType) 와 함께 둘 수 없는 것이 있는지 (재연결·방향 전환 거절용).
+let hasConflict
+    (isExcluded: Guid -> bool)
+    (sourceId: Guid) (targetId: Guid) (arrowType: ArrowType)
+    (arrows: seq<#DsArrow>) : bool =
+    arrows
+    |> Seq.exists (fun arrow ->
+        not (isExcluded arrow.Id)
+        && cannotCoexist arrow.SourceId arrow.TargetId arrow.ArrowType sourceId targetId arrowType)
+
+/// sourceId→targetId(arrowType) 를 새로 긋거나 그 종류로 바꾸면 대신 지울 화살표 — 함께 둘 수 없는 것 전부.
+let arrowsReplacedBy
+    (isExcluded: Guid -> bool)
+    (sourceId: Guid) (targetId: Guid) (arrowType: ArrowType)
+    (arrows: seq<#DsArrow>) : Guid list =
+    arrows
+    |> Seq.filter (fun arrow ->
+        not (isExcluded arrow.Id)
+        && cannotCoexist arrow.SourceId arrow.TargetId arrow.ArrowType sourceId targetId arrowType)
+    |> Seq.map (fun arrow -> arrow.Id)
+    |> Seq.toList
 
 let private noneExcluded (_: Guid) = false
 
@@ -143,17 +176,17 @@ let orderedArrowLinksForSelection
         else
             match sourceType with
             | EntityKind.Work when sourceParent = targetParent ->
-                // 같은 System에 속한 Work끼리만 연결, 같은 연결(isSameConnection)이 이미 있으면 제외
+                // 같은 System에 속한 Work끼리만 연결, 같은 화살표(isSameConnection)가 이미 있으면 제외
                 if Queries.arrowWorksOf sourceParent store |> hasSameConnection noneExcluded sourceId targetId arrowType then None
                 else Some (sourceType, sourceParent, sourceId, targetId)
             | EntityKind.Call when sourceParent = targetParent ->
-                // 같은 Work에 속한 Call끼리만 연결, 같은 연결이 이미 있으면 제외
+                // 같은 Work에 속한 Call끼리만 연결, 같은 화살표가 이미 있으면 제외
                 if Queries.arrowCallsOf sourceParent store |> hasSameConnection noneExcluded sourceId targetId arrowType then None
                 else Some (sourceType, sourceParent, sourceId, targetId)
             | _ -> None)
 
-/// 선택 순서로 새로 이을 수 있는 화살표 종류 — 이을 쌍이 하나라도 남은 종류만. 비면 이을 것이 없다.
-/// 연결 메뉴를 띄울지와 메뉴에서 어떤 종류를 켤지를 정한다(Start 가 이미 있어도 Reset 등은 남는다).
+/// 선택 순서로 새로 이을 수 있는 화살표 종류 — 같은 화살표가 없는 쌍이 하나라도 남은 종류만. 비면 이을 것이 없다.
+/// 연결 메뉴를 띄울지와 메뉴에서 어떤 종류를 켤지를 정한다(Start 가 있어도 StartReset·Reset 등은 남는다).
 let connectableArrowTypesForSelection (store: DsStore) (orderedNodeIds: seq<Guid>) : ArrowType list =
     let ids = Seq.toList orderedNodeIds
     EntityKindRules.availableArrowTypes true

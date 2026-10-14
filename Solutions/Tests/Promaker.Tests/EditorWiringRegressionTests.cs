@@ -49,9 +49,9 @@ public sealed class EditorWiringRegressionTests
     }
 
     /// <summary>Start 로 이어 둔 두 Work 를 다시 골라도 연결 메뉴가 떠야 한다 — 예전엔 메뉴 판단이 Start 로만 따져
-    /// "화살표 연결" 이 꺼졌고, Reset 같은 다른 종류도 그을 수 없었다. 같은 연결인 Start · StartReset 만 꺼진다.</summary>
+    /// "화살표 연결" 이 꺼졌다. 이제 Start 만 꺼지고, StartReset 을 고르면 기존 Start 를 대체한다.</summary>
     [Fact]
-    public void Two_works_joined_by_start_can_still_be_connected_with_other_arrow_types()
+    public void Two_works_joined_by_start_open_the_connect_menu_and_start_reset_replaces_start()
     {
         StaTestRunner.Run(() =>
         {
@@ -68,8 +68,11 @@ public sealed class EditorWiringRegressionTests
             Assert.True(vm.ConnectSelectedNodesCommand.CanExecute(null));
             var types = vm.Selection.ConnectableArrowTypes();
             Assert.DoesNotContain(ArrowType.Start, types);
-            Assert.DoesNotContain(ArrowType.StartReset, types);
-            Assert.Contains(ArrowType.Reset, types);
+            Assert.Contains(ArrowType.StartReset, types);
+
+            Assert.True(vm.Selection.ConnectSelectedNodesInOrder(ArrowType.StartReset));
+            var arrow = Assert.Single(store.ArrowWorks.Values.Where(a => a.SourceId == work1Id && a.TargetId == work2Id));
+            Assert.Equal(ArrowType.StartReset, arrow.ArrowType);
         });
     }
 

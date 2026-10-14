@@ -528,28 +528,63 @@ module ArrowTests =
         Assert.Equal(system.Id, arrow.ParentId)
 
 
-    /// 같은 쌍에 Start 가 있어도 다른 종류는 더 그을 수 있다. 막는 것은 같은 연결뿐이다 — 같은 방향 Start · StartReset,
-    /// 방향만 다른 ResetReset. 예전엔 연결 메뉴가 Start 기준으로만 따져, Start 가 있는 쌍은 어떤 종류도 그을 수 없었다.
+    /// 한 쌍에 함께 둘 수 없는 같은 계열(같은 방향 Start · StartReset, ResetReset · Reset)은 나중에 그은 화살표가 대체하고,
+    /// 나머지 종류는 함께 둔다. 같은 화살표는 새로 만들지 않는다. 예전엔 연결 메뉴가 Start 기준으로만 따져 Start 가 있는
+    /// 쌍에는 어떤 종류도 그을 수 없었고, 규칙상으로는 Start 와 StartReset 이 같은 쌍에 겹쳐 쌓였다.
     [<Fact>]
-    let ``ConnectSelectionInOrder blocks only the same connection between same nodes`` () =
+    let ``ConnectSelectionInOrder replaces the same family on a pair and keeps other types`` () =
         let store = createStore ()
         let _, _, flow, work1 = setupBasicHierarchy store
         let work2 = addWork store "W2" flow.Id
+        let forward, backward = [ work1.Id; work2.Id ], [ work2.Id; work1.Id ]
         let connect ids arrowType = store.ConnectSelectionInOrder(ids, arrowType)
-        Assert.Equal(1, connect [ work1.Id; work2.Id ] ArrowType.Start)
-
+        let types () = store.ArrowWorks.Values |> Seq.map (fun a -> a.ArrowType) |> Seq.sort |> Seq.toList
+        Assert.Equal(1, connect forward ArrowType.Start)
         Assert.Equal<ArrowType list>(
-            [ ArrowType.Reset; ArrowType.ResetReset; ArrowType.Group ],
-            ConnectionQueries.connectableArrowTypesForSelection store [ work1.Id; work2.Id ])
-        Assert.Equal(0, connect [ work1.Id; work2.Id ] ArrowType.StartReset)
-        Assert.Equal(1, connect [ work1.Id; work2.Id ] ArrowType.Reset)
-        Assert.Equal(1, connect [ work1.Id; work2.Id ] ArrowType.ResetReset)
-        Assert.Equal(0, connect [ work2.Id; work1.Id ] ArrowType.ResetReset)
-        // 반대 방향 StartReset 은 work1 을 시작시키는 다른 연결 — 허용. 뒤집으면 기존 Start 와 같은 연결이라 거절.
-        Assert.Equal(1, connect [ work2.Id; work1.Id ] ArrowType.StartReset)
-        let backward = store.ArrowWorks.Values |> Seq.find (fun a -> a.ArrowType = ArrowType.StartReset)
-        Assert.False(store.ReverseArrow(backward.Id))
-        Assert.Equal(4, store.ArrowWorks.Count)
+            [ ArrowType.Reset; ArrowType.StartReset; ArrowType.ResetReset; ArrowType.Group ],
+            ConnectionQueries.connectableArrowTypesForSelection store forward)
+
+        Assert.Equal(1, connect forward ArrowType.StartReset)
+        Assert.Equal<ArrowType list>([ ArrowType.StartReset ], types ())
+        store.Undo()
+        Assert.Equal<ArrowType list>([ ArrowType.Start ], types ())
+
+        Assert.Equal(1, connect forward ArrowType.Reset)
+        Assert.Equal(1, connect forward ArrowType.ResetReset)
+        Assert.Equal<ArrowType list>([ ArrowType.Start; ArrowType.ResetReset ], types ())
+        Assert.Equal(0, connect backward ArrowType.ResetReset)
+        Assert.Equal(1, connect backward ArrowType.Reset)
+        Assert.Equal<ArrowType list>([ ArrowType.Start; ArrowType.Reset ], types ())
+
+        // 방향 전환은 대체하지 않고 거절한다 — W2→W1 StartReset 을 뒤집으면 W1→W2 Start 와 함께 둘 수 없다.
+        Assert.Equal(1, connect backward ArrowType.StartReset)
+        let startReset = store.ArrowWorks.Values |> Seq.find (fun a -> a.ArrowType = ArrowType.StartReset)
+        Assert.False(store.ReverseArrow(startReset.Id))
+
+    /// 종류 바꾸기와 상호 리셋도 같은 규칙이다 — 바꾼 종류와 함께 둘 수 없는 화살표는 대체된다.
+    /// 예전엔 ResetReset 끼리만 합쳐, 같은 쌍의 Reset 을 Start 로 바꾸면 Start 가 둘이 됐다.
+    [<Fact>]
+    let ``UpdateArrowType and mutual reset replace arrows that cannot share the pair`` () =
+        let store = createStore ()
+        let _, _, flow, work1 = setupBasicHierarchy store
+        let work2 = addWork store "W2" flow.Id
+        let work3 = addWork store "W3" flow.Id
+        let pairTypes (a: Guid) (b: Guid) =
+            store.ArrowWorks.Values
+            |> Seq.filter (fun x -> (x.SourceId = a && x.TargetId = b) || (x.SourceId = b && x.TargetId = a))
+            |> Seq.map (fun x -> x.ArrowType)
+            |> Seq.sort
+            |> Seq.toList
+        store.ConnectSelectionInOrder([ work1.Id; work2.Id ], ArrowType.Start) |> ignore
+        store.ConnectSelectionInOrder([ work1.Id; work2.Id ], ArrowType.Reset) |> ignore
+        let reset = store.ArrowWorks.Values |> Seq.find (fun a -> a.ArrowType = ArrowType.Reset)
+
+        Assert.True(store.UpdateArrowType(reset.Id, ArrowType.Start))
+        Assert.Equal<ArrowType list>([ ArrowType.Start ], pairTypes work1.Id work2.Id)
+
+        store.ConnectSelectionInOrder([ work2.Id; work3.Id ], ArrowType.Reset) |> ignore
+        Assert.Equal(1, store.ConnectWorksWithMutualReset([ work2.Id; work3.Id ]))
+        Assert.Equal<ArrowType list>([ ArrowType.ResetReset ], pairTypes work2.Id work3.Id)
 
     [<Fact>]
     let ``ConnectSelectionInOrder blocks same ArrowType between same nodes`` () =

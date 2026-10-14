@@ -126,7 +126,7 @@ public class SelectionState
     public bool CanConnectSelectedNodesInOrder() =>
         TryGetOrderedConnectLinks(out _);
 
-    /// <summary>선택 순서로 새로 이을 수 있는 화살표 종류. 이미 같은 연결이 있는 종류는 빠진다.</summary>
+    /// <summary>선택 순서로 새로 이을 수 있는 화살표 종류. 이미 같은 화살표가 있는 종류만 빠진다 — 같은 계열은 새 화살표가 대체한다.</summary>
     public IReadOnlyCollection<ArrowType> ConnectableArrowTypes()
     {
         if (_orderedNodeSelection.Count < 2)
@@ -172,7 +172,7 @@ public class SelectionState
         return true;
     }
 
-    internal const string SameConnectionStatus = "이미 같은 연결이 있어 새 화살표를 만들지 않았습니다.";
+    internal const string SameConnectionStatus = "이미 같은 화살표가 있어 새로 만들지 않았습니다.";
 
     /// <summary>이을 수 있는 종류 중 첫 종류의 연결 목록 — 연결 메뉴를 띄울지와 노드 종류를 정한다.
     /// 예전엔 Start 로만 따져, Start 가 이미 있는 쌍은 Reset 같은 다른 종류도 메뉴가 꺼졌다.</summary>

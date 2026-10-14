@@ -138,7 +138,7 @@ public partial class EditorCanvas
         IEnumerable<ArrowType> menuTypes = isWorkMode
             ? ArrowTypeFrequencyTracker.GetPinnedTypes(available)
             : available;
-        // 이미 같은 연결이 있는 종류는 꺼 둔다 — 나머지 종류는 같은 쌍에도 더 그을 수 있다.
+        // 이미 같은 화살표가 있는 종류만 꺼 둔다 — 같은 계열은 고른 종류가 대체하고, 나머지는 같은 쌍에 함께 둔다.
         var connectable = VM?.Selection.ConnectableArrowTypes() ?? Array.Empty<ArrowType>();
 
         foreach (var at in menuTypes)
