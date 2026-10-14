@@ -1,12 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Windows;
 using Ds2.Core.Store;
-using Promaker.Dialogs;
-using Promaker.Services;
 using Promaker.ViewModels;
 using Xunit;
 
@@ -24,11 +18,11 @@ public sealed class OpenRejectsNonModelFileTests
         StaTestRunner.Run(() =>
         {
             var vm = new MainViewModel();
-            var dialogs = new RecordingDialogService();
-            SetField(vm, "_dialogService", dialogs);
+            var dialogs = new TestDialogService();
+            TestReflection.Set(vm, "_dialogService", dialogs);
             vm.NewProjectCommand.Execute(null);
             StaTestRunner.PumpPendingUi();
-            var store = (DsStore)GetField(vm, "_store")!;
+            var store = TestReflection.Get<DsStore>(vm, "_store");
             var projectId = Assert.Single(store.Projects.Keys);
 
             var path = Path.Combine(Path.GetTempPath(), $"not-a-model-{Guid.NewGuid():N}.json");
@@ -41,7 +35,7 @@ public sealed class OpenRejectsNonModelFileTests
                 Assert.Contains(dialogs.Warnings, m => m.Contains("프로젝트가 없는"));
                 Assert.True(vm.HasProject);
                 Assert.Contains(projectId, store.Projects.Keys);
-                Assert.Null(GetField(vm, "_currentFilePath"));
+                Assert.Null(TestReflection.GetOrNull(vm, "_currentFilePath"));
                 Assert.DoesNotContain(Path.GetFileName(path), vm.Title);
                 Assert.False(vm.IsBusy);
             }
@@ -50,29 +44,5 @@ public sealed class OpenRejectsNonModelFileTests
                 File.Delete(path);
             }
         });
-    }
-
-    private static void SetField(object target, string name, object value) =>
-        target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(target, value);
-
-    private static object? GetField(object target, string name) =>
-        target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(target);
-
-    private sealed class RecordingDialogService : IDialogService
-    {
-        public List<string> Warnings { get; } = [];
-
-        public string? PromptName(string title, string defaultName) => defaultName;
-        public bool Confirm(string message, string title) => true;
-        public void ShowWarning(string message) => Warnings.Add(message);
-        public bool WarnSimulationEditBlocked(string message) => false;
-        public void ShowError(string message) => Warnings.Add(message);
-        public void ShowInfo(string message) { }
-        public MessageBoxResult AskSaveChanges() => MessageBoxResult.No;
-        public string? ShowOpenFileDialog(string filter) => null;
-        public string? ShowSaveFileDialog(string filter, string? defaultFileName = null) => null;
-        public T? ShowDialog<T>(Window dialog) where T : class => null;
-        public bool? ShowDialog(Window dialog) => null;
-        public Ds2.Editor.CrossFlowDeviceMode? PromptCrossFlowDeviceMode(CrossFlowDeviceModePromptContext context) => null;
     }
 }

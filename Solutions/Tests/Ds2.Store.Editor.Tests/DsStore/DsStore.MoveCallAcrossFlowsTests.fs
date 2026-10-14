@@ -219,26 +219,68 @@ let ``MoveCallsAcrossFlow removes source calls and orphan ApiCalls`` () =
 
 
 [<Fact>]
-let ``MoveCallsAcrossFlow auto-rewires ApiCall references in other Call Conditions`` () =
-    // source Call 의 ApiCall.Id 를 다른 Flow Call 의 Condition 에서 leaf 참조 → 이동 시 자동 rewire 검증.
+let ``MoveCallsAcrossFlow rewires condition leaves to independent copies and undo restores them`` () =
+    // 다른 Flow Call 의 조건 leaf 가 옮겨진 Call 의 ApiCall 을 가리키면, 이동 후 같은 Id 의 *독립 사본* 으로 바뀌고
+    // (본체 객체를 넣으면 leaf 스펙 편집이 본체까지 바꾼다), Undo 하면 원래 ApiCall 을 다시 가리켜야 한다.
+    // 예전엔 교체를 기록보다 먼저 해서 Undo 뒤에도 leaf 가 지워진 ApiCall 을 가리켰다.
     let store, _project, _system, _sourceFlow, sourceWork, _targetFlowId, targetWorkId = buildTwoFlowFixture ()
     let movableCallId = addDeviceCall store sourceWork.Id "Conv_R1" "ADV"
     let originalApiCallId = store.Calls.[movableCallId].ApiCalls.[0].Id
-
-    // 다른 Flow 의 Call 의 Condition 에 movable Call 의 ApiCall 을 leaf 로 추가 (panel API 사용)
     let otherCallId = addDeviceCall store targetWorkId "Conv_R2" "ADV"
-    let _condId = store.AddConditionWithApiCalls(otherCallId, ConditionType.AutoAux, [ originalApiCallId ])
+    store.AddConditionWithApiCalls(otherCallId, ConditionType.AutoAux, [ originalApiCallId ]) |> ignore
 
     let movedIds = store.MoveCallsAcrossFlow([ movableCallId ], targetWorkId, CrossFlowDeviceMode.CloneSystem) |> unwrapMoved
-    Assert.Equal(1, movedIds.Length)
 
-    // 원본 ApiCall 은 사라졌어야 함
-    Assert.False(store.ApiCalls.ContainsKey(originalApiCallId))
-
-    // otherCall 의 Condition 안 ApiCall 이 *새 ApiCall* 로 자동 rewire 되었는지 확인
-    let otherCall = store.Calls.[otherCallId]
-    let rewired = otherCall.Conditions.[0].ApiCalls.[0]
-    Assert.NotEqual(originalApiCallId, rewired.Id)
-    // 그 새 ApiCall 은 새로 paste 된 Call 의 ApiCall 과 동일 객체
     let newApiCall = store.Calls.[movedIds.Head].ApiCalls.[0]
-    Assert.Same(newApiCall, rewired)
+    let leaf = store.Calls.[otherCallId].Conditions.[0].ApiCalls.[0]
+    Assert.Equal(newApiCall.Id, leaf.Id)
+    Assert.NotSame(newApiCall, leaf)
+
+    store.Undo()
+
+    Assert.Equal(originalApiCallId, store.Calls.[otherCallId].Conditions.[0].ApiCalls.[0].Id)
+
+[<Fact>]
+let ``MoveCallsAcrossFlow refuses calls that belong to a reference group`` () =
+    // 이동은 원본을 옮기고 원래 자리의 묶음을 지운다. Reference 를 옮기려 하면 원본이 옮겨지고, 원본을 옮기면
+    // Reference 가 지워졌다 — 둘 다 막고 모델은 그대로 둬야 한다.
+    let store, _project, _system, _sourceFlow, sourceWork, _targetFlowId, targetWorkId = buildTwoFlowFixture ()
+    let originalId = addDeviceCall store sourceWork.Id "Conv_9" "ADV"
+    let referenceId = store.AddReferenceCall(originalId)
+
+    for id in [ referenceId; originalId ] do
+        match store.MoveCallsAcrossFlow([ id ], targetWorkId, CrossFlowDeviceMode.CloneSystem) with
+        | Blocked (ReferencesInvolved ids) -> Assert.Contains(id, ids)
+        | other -> Assert.Fail($"Expected ReferencesInvolved but got {other}")
+
+    Assert.Equal(sourceWork.Id, store.Calls.[originalId].ParentId)
+    Assert.True(store.Calls.ContainsKey referenceId)
+
+[<Fact>]
+let ``MoveWorksAcrossFlow refuses a work that has references`` () =
+    let store, _project, _system, _sourceFlow, sourceWork, targetFlowId, _targetWorkId = buildTwoFlowFixture ()
+    let referenceWorkId = store.AddReferenceWork(sourceWork.Id)
+
+    match store.CanMoveWorksAcrossFlow([ sourceWork.Id ], targetFlowId, CrossFlowDeviceMode.CloneSystem) with
+    | ReferencesInvolved ids -> Assert.Contains(sourceWork.Id, ids)
+    | other -> Assert.Fail($"Expected ReferencesInvolved but got {other}")
+    Assert.Empty(store.MoveWorksAcrossFlow([ sourceWork.Id ], targetFlowId, CrossFlowDeviceMode.CloneSystem))
+    Assert.True(store.Works.ContainsKey sourceWork.Id)
+    Assert.True(store.Works.ContainsKey referenceWorkId)
+
+[<Fact>]
+let ``MoveWorksAcrossFlow in rename mode is blocked when the device is shared with a work staying behind`` () =
+    // Work 이동은 대상 Work 가 없어 rename 충돌 사전 검사를 건너뛰었고, 이동 경로도 검증 없이 device 이름을 바꿨다 —
+    // 남는 Work 의 Call 이 쓰던 device 이름까지 대상 Flow 접두어로 바뀌었다.
+    let store, _project, _system, sourceFlow, sourceWork, targetFlowId, _targetWorkId = buildTwoFlowFixture ()
+    let stayingWorkId = store.AddWork("Staying", sourceFlow.Id)
+    addDeviceCall store sourceWork.Id "Conv" "ADV" |> ignore
+    addDeviceCall store stayingWorkId "Conv" "RET" |> ignore
+    let systemNames () = store.Systems.Values |> Seq.map (fun s -> s.Name) |> Set.ofSeq
+    let before = systemNames ()
+
+    match store.CanMoveWorksAcrossFlow([ sourceWork.Id ], targetFlowId, CrossFlowDeviceMode.RenameSourceSystem) with
+    | RenameModeConflicts conflicts -> Assert.NotEmpty conflicts
+    | other -> Assert.Fail($"Expected RenameModeConflicts but got {other}")
+    Assert.Empty(store.MoveWorksAcrossFlow([ sourceWork.Id ], targetFlowId, CrossFlowDeviceMode.RenameSourceSystem))
+    Assert.Equal<Set<string>>(before, systemNames ())

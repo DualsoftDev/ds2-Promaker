@@ -613,3 +613,95 @@ module ApiCallReplicationGuardTests =
         // apiName 빈 경우 — ApiCall 0개 + Device System 안 만들어짐.
         Assert.Equal(0, call.ApiCalls.Count)
         Assert.Equal(beforePassive, passiveCount store project.Id)
+
+
+/// 패널 일괄 편집 무결성 회귀 — IO 태그 Undo, Reference Duration 행, 신호 수량, 태그 마법사 선두 주소.
+module PanelIntegrityRegressionTests =
+
+    let private callWithDevice () =
+        let store = createStore ()
+        let project, system, flow, work = setupBasicHierarchy store
+        store.AddCallsWithDevice(project.Id, work.Id, [ "D.A1" ], true, None)
+        let call = Queries.callsOf work.Id store |> List.head
+        store, system, flow, work, call
+
+    /// TAG Wizard 적용은 ApiCall 사전을 기록해야 한다. Call 만 기록하면 Undo 가 Call 을 되돌린 뒤 재연결이 새 태그를 가진
+    /// ApiCall 을 다시 끼워 넣어, 되돌렸다고 표시돼도 태그는 그대로였다.
+    [<Fact>]
+    let ``undoing a TAG wizard IO apply restores the previous tags`` () =
+        let store, _, _, _, call = callWithDevice ()
+        let apiCallId = call.ApiCalls.[0].Id
+        let addressOf () = store.Calls.[call.Id].ApiCalls.[0].OutTag |> Option.map (fun t -> t.Address)
+        let before = addressOf ()
+        let entries =
+            [| struct (call.Id, apiCallId, IOTag("Out", "%QX9.9", ""), IOTag("In", "%IX9.9", "")) |]
+            :> System.Collections.Generic.IReadOnlyList<_>
+
+        Assert.Equal(1, store.UpdateApiCallIoTagsBatch(entries))
+        Assert.Equal(Some "%QX9.9", addressOf ())
+
+        store.Undo()
+
+        Assert.Equal(before, addressOf ())
+        Assert.Equal(before, store.ApiCalls.[apiCallId].OutTag |> Option.map (fun t -> t.Address))
+
+    /// Reference Work 의 Duration 은 원본에서 읽고 원본에 쓴다. 행이 0 을 보여 주면 한 칸만 고쳐 적용해도 나머지 칸이
+    /// 0(=지움)으로 원본을 덮었다.
+    [<Fact>]
+    let ``duration rows of a reference work show the original work values`` () =
+        let store, _, _, work, _ = callWithDevice ()
+        let original = store.Works.[work.Id]
+        original.Duration <- Some (TimeSpan.FromMilliseconds 1000.0)
+        original.MinDuration <- Some (TimeSpan.FromMilliseconds 900.0)
+        original.MaxDuration <- Some (TimeSpan.FromMilliseconds 1100.0)
+        let referenceId = store.AddReferenceWork(work.Id)
+
+        let row = store.GetAllWorkDurationRows() |> List.find (fun r -> r.WorkId = referenceId)
+
+        Assert.Equal(1000, row.PeriodMs)
+        Assert.Equal(900, row.MinDurationMs)
+        Assert.Equal(1100, row.MaxDurationMs)
+
+    /// Call 추가 대화상자의 신호 수량은 생성 단계와 한 번의 Undo 로 묶이고 Redo 에서도 살아 있어야 한다.
+    [<Fact>]
+    let ``signal counts applied after call creation survive undo and redo as one step`` () =
+        let store = createStore ()
+        let project, _, _, work = setupBasicHierarchy store
+        store.AddCallsWithDevice(project.Id, work.Id, [ "D.A1" ], true, None)
+        let callId = (Queries.callsOf work.Id store |> List.head).Id
+        let counts = System.Collections.Generic.Dictionary<string, int>()
+        counts.["A1"] <- 3
+
+        store.ApplySignalCountsToNewCalls([ callId ], counts)
+
+        let countOf () = store.Calls.[callId].GetControlProperties() |> Option.map (fun p -> p.SignalCounts.["A1"])
+        Assert.Equal(Some 3, countOf ())
+        store.Undo()
+        Assert.False(store.Calls.ContainsKey callId)
+        store.Redo()
+        Assert.Equal(Some 3, countOf ())
+
+    /// 태그 마법사 1단계의 선두 주소 저장은 Undo 로 되돌릴 수 있어야 한다. 예전엔 C# 이 store 객체를 직접 고쳐 이력에도,
+    /// "저장 안 됨" 표시에도 남지 않았다.
+    [<Fact>]
+    let ``TAG wizard base address saves are undoable`` () =
+        let store, system, flow, _, _ = callWithDevice ()
+
+        Assert.True(store.UpdateSystemTypeBaseAddresses([ struct ("Cyl", "100", "x", "300") ]))
+        Assert.Equal(1, store.UpdateFlowBaseAddressOverrides([ struct (flow.Id, "10", "", "") ]))
+
+        let preset = store.Systems.[system.Id].GetControlProperties().Value.FBTagMapPresets.["Cyl"]
+        Assert.Equal("100", preset.BaseAddresses.InputBase)
+        Assert.Equal("%QW0.0.0", preset.BaseAddresses.OutputBase)
+        Assert.Equal("300", preset.BaseAddresses.MemoryBase)
+        Assert.Equal("10", store.Flows.[flow.Id].GetControlProperties().Value.BaseAddressOverride.Value.InputBase)
+
+        store.Undo()
+        store.Undo()
+
+        let hasPreset =
+            store.Systems.[system.Id].GetControlProperties()
+            |> Option.exists (fun cp -> cp.FBTagMapPresets.ContainsKey "Cyl")
+        Assert.False(hasPreset)
+        let flowOverride = store.Flows.[flow.Id].GetControlProperties() |> Option.bind (fun p -> p.BaseAddressOverride)
+        Assert.True(flowOverride.IsNone)

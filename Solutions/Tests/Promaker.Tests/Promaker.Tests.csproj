@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\Apps\Promaker\Promaker\Promaker.csproj" />
+    <ProjectReference Include="..\..\..\Promaker\Promaker.csproj" />
   </ItemGroup>
 
 </Project>

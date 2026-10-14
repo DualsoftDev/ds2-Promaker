@@ -442,3 +442,62 @@ module ConditionFormulaProjectionTests =
         let item = ConditionApiCallItem(Guid.NewGuid(), "A", "A", "true", 0, "", 0, ContactKind.NoContact, UndefinedValue, None)
         let c = cond false false [ item ] []
         Assert.Equal("A", formula c)
+
+
+/// 조건 트리 교체(래더 편집기 저장)가 leaf 고유 스펙을 지키는지.
+module ConditionTreeReplaceRegressionTests =
+
+    /// 패널에서 leaf 기대값을 바꿔 둔 뒤 래더 편집기로 저장(트리 교체)하면, 예전엔 store 원본 ApiCall 을 다시 복사해
+    /// 기대값이 기본값으로 돌아갔다 — 편집 없이 "저장" 만 눌러도 그랬다.
+    [<Fact>]
+    let ``replacing a condition tree keeps the input spec edited on an existing leaf`` () =
+        let store = createStore ()
+        let project, _, _, work = setupBasicHierarchy store
+        store.AddCallsWithDevice(project.Id, work.Id, [ "D.A1"; "D.A2" ], true, None)
+        let calls = Queries.callsOf work.Id store
+        let owner, source = calls.[0], calls.[1]
+        let sourceApiCallId = source.ApiCalls.[0].Id
+        let condId = store.AddConditionWithApiCalls(owner.Id, ConditionType.AutoAux, [ sourceApiCallId ])
+        Assert.True(store.UpdateConditionApiCallInputSpec(owner.Id, condId, sourceApiCallId, 4, "123"))
+
+        store.ReplaceCallConditionTree(owner.Id, ConditionType.AutoAux, dtoFlat false [ sourceApiCallId ])
+
+        let leaf =
+            store.Calls.[owner.Id].Conditions
+            |> Seq.find (fun c -> c.Type = Some ConditionType.AutoAux)
+            |> fun c -> c.ApiCalls.[0]
+        match leaf.InputSpec with
+        | Int32Value (Single v) -> Assert.Equal(123, v)
+        | other -> Assert.Fail($"leaf InputSpec 이 초기화됐다: {other}")
+
+/// 조건 편집기에서 leaf 를 모두 지우고 저장하면 그 type 의 조건이 비워져야 한다. 예전엔 "leaf 0 개면 저장 생략" 안전장치 때문에
+/// 지운 조건이 그대로 남았다 — 사용자는 지웠다고 알고 있는데 시뮬·PLC 출력에는 계속 들어갔다.
+module ConditionTreeClearTests =
+
+    [<Fact>]
+    let ``clearing a call condition type removes only that type and undo restores it`` () =
+        let store = createStore ()
+        let _, _, _, call, ac1, ac2 = setupCallWithApiCalls store
+        store.AddConditionWithApiCalls(call.Id, ConditionType.AutoAux, [ ac1 ]) |> ignore
+        store.AddConditionWithApiCalls(call.Id, ConditionType.ComAux, [ ac2 ]) |> ignore
+
+        store.ClearCallConditionTree(call.Id, ConditionType.AutoAux)
+
+        let types () = store.Calls.[call.Id].Conditions |> Seq.map (fun c -> c.Type) |> Seq.toList
+        Assert.Equal<ConditionType option list>([ Some ConditionType.ComAux ], types ())
+        store.Undo() |> ignore
+        Assert.Contains(Some ConditionType.AutoAux, types ())
+
+    [<Fact>]
+    let ``clearing a work condition type removes only that type and undo restores it`` () =
+        let store = createStore ()
+        let _, _, work, _, ac1, ac2 = setupCallWithApiCalls store
+        store.AddWorkConditionWithApiCalls(work.Id, ConditionType.AutoAux, [ ac1 ]) |> ignore
+        store.AddWorkConditionWithApiCalls(work.Id, ConditionType.ComAux, [ ac2 ]) |> ignore
+
+        store.ClearWorkConditionTree(work.Id, ConditionType.AutoAux)
+
+        let types () = store.Works.[work.Id].Conditions |> Seq.map (fun c -> c.Type) |> Seq.toList
+        Assert.Equal<ConditionType option list>([ Some ConditionType.ComAux ], types ())
+        store.Undo() |> ignore
+        Assert.Contains(Some ConditionType.AutoAux, types ())

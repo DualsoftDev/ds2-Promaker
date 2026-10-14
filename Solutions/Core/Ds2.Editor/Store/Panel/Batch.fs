@@ -54,16 +54,21 @@ type DsStorePanelBatchExtensions =
                 |> List.collect (fun flow ->
                     Queries.worksOf flow.Id store
                     |> List.map (fun work ->
+                        // Reference Work 의 Duration 은 원본에서 읽고 원본에 쓴다(planChanges). 행도 원본 값을 보여야 한 칸만
+                        // 고쳐 적용했을 때 나머지 칸이 0(=지움)으로 원본을 덮지 않는다.
+                        let source =
+                            Queries.getWork (Queries.resolveOriginalWorkId work.Id store) store
+                            |> Option.defaultValue work
                         let ms =
-                            work.Duration
+                            source.Duration
                             |> Option.map (fun t -> int t.TotalMilliseconds)
                             |> Option.defaultValue 0
                         let minMs =
-                            work.MinDuration
+                            source.MinDuration
                             |> Option.map (fun t -> int t.TotalMilliseconds)
                             |> Option.defaultValue 0
                         let maxMs =
-                            work.MaxDuration
+                            source.MaxDuration
                             |> Option.map (fun t -> int t.TotalMilliseconds)
                             |> Option.defaultValue 0
                         WorkDurationBatchRow(work.Id, sys.Name, flow.Name, work.LocalName, ms, minMs, maxMs, isDeviceWork))))

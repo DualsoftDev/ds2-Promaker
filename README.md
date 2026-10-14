@@ -130,20 +130,19 @@ sequenceDiagram
 ## 저장소 구성
 
 ```
-Apps/Promaker/
-  Promaker/                 WPF 앱 (C#)
-    Controls/               Canvas · PropertyPanel · Shell(툴바·탐색기) · Simulation(간트) · ExpressionEditor · Logging
-    Dialogs/                CallCreate · ApiCall · Condition · TagWizard · DurationBatch · ImportExport · Plc · Settings · View3D …
-    ViewModels/             Shell(MainViewModel 분할) · PropertyPanel · Simulation · NodeCommands · Logging
-    Dock/                   AvalonDock 레이아웃 캡슐화
-    Services/ Themes/ Resources/ Assets/ Help/ Presentation/ wwwroot/
-  Promaker.sln              이 저장소의 빌드 진입점
-  Installer/                Inno Setup 스크립트(Setup.iss · CodeDependencies.iss)
-  Makefile · scripts/       publish → ISCC → 배포(dist-common.mk · bump-buildversion.sh …)
-  BuildVersion.txt          Promaker 버전 SSOT (Directory.Build.props 가 csproj 에 주입)
-  ReleaseNote.txt           릴리스 노트 누적
-  Docs/                     설계·완료 기록
-  LOCALIZATION_GUIDE.md     다국어 리소스 안내
+Promaker/                   WPF 앱 (C#)
+  Controls/               Canvas · PropertyPanel · Shell(툴바·탐색기) · Simulation(간트) · ExpressionEditor · Logging
+  Dialogs/                CallCreate · ApiCall · Condition · TagWizard · DurationBatch · ImportExport · Plc · Settings · View3D …
+  ViewModels/             Shell(MainViewModel 분할) · PropertyPanel · Simulation · NodeCommands · Logging
+  Dock/                   AvalonDock 레이아웃 캡슐화
+  Services/ Themes/ Resources/ Assets/ Help/ Presentation/ wwwroot/
+Promaker.sln                이 저장소의 빌드 진입점
+Installer/                  Inno Setup 스크립트(Setup.iss · CodeDependencies.iss)
+Makefile · scripts/         publish → ISCC → 배포(dist-common.mk · bump-buildversion.sh …)
+BuildVersion.txt            Promaker 버전 SSOT (Directory.Build.props 가 csproj 에 주입)
+ReleaseNote.txt             릴리스 노트 누적
+Docs/                       설계·완료 기록
+LOCALIZATION_GUIDE.md       다국어 리소스 안내
 Solutions/
   Core/Ds2.Editor           편집 코어 (F#) — 트랜잭션 · Undo/Redo · 붙여넣기 · 투영 · 쿼리
   Convert/Ds2.IOList        I/O 신호 생성·매칭 · CSV/Excel 내보내기
@@ -161,15 +160,15 @@ external/ds2                DS2 라이브러리 서브모듈
 ```bash
 git clone --recurse-submodules https://github.com/DualsoftDev/ds2-Promaker.git
 cd ds2-Promaker
-dotnet build Apps/Promaker/Promaker.sln -nologo
-dotnet test  Apps/Promaker/Promaker.sln -nologo
+dotnet build Promaker.sln -nologo
+dotnet test  Promaker.sln -nologo
 ```
 
 이미 받은 뒤 서브모듈이 비어 있으면 `git submodule update --init --recursive`.
 
 ```bash
-make -C Apps/Promaker run            # Debug 빌드 후 실행
-make -C Apps/Promaker build-release
+make run            # Debug 빌드 후 실행
+make build-release
 ```
 
 | 테스트 프로젝트 | 범위 |
@@ -184,11 +183,11 @@ make -C Apps/Promaker build-release
 Inno Setup 6 이 필요하다.
 
 ```bash
-make -C Apps/Promaker dist-installer            # self-contained (기본 MODE=sc)
-make -C Apps/Promaker dist-installer MODE=fd    # framework-dependent (.NET Desktop Runtime 자동 다운로드)
+make dist-installer            # self-contained (기본 MODE=sc)
+make dist-installer MODE=fd    # framework-dependent (.NET Desktop Runtime 자동 다운로드)
 ```
 
-산출물: `Apps/Promaker/Installer/Output/Promaker_Setup_<버전>_sc.exe` (`_fd`). 버전은 `BuildVersion.txt` 하나만 올린다(`scripts/bump-buildversion.sh`). 정식 배포(릴리스 노트 누적 · 태그 · scp)는 `.claude/skills/dist` 워크플로(Claude Code `/dist`)를 쓴다.
+산출물: `Installer/Output/Promaker_Setup_<버전>_sc.exe` (`_fd`). 버전은 `BuildVersion.txt` 하나만 올린다(`scripts/bump-buildversion.sh`). 정식 배포(릴리스 노트 누적 · 태그 · scp)는 `.claude/skills/dist` 워크플로(Claude Code `/dist`)를 쓴다.
 
 ## 로깅
 
@@ -205,8 +204,8 @@ log4net. `App.xaml.cs OnStartup` 에서 `log4net.config` 를 읽는다(없으면
 
 | 문서 | 내용 |
 |:-----|:-----|
-| [`Apps/Promaker/Docs/`](Apps/Promaker/Docs/) | 설계·완료 기록 |
-| [`Apps/Promaker/LOCALIZATION_GUIDE.md`](Apps/Promaker/LOCALIZATION_GUIDE.md) | 다국어 리소스 |
+| [`Docs/`](Docs/) | 설계·완료 기록 |
+| [`LOCALIZATION_GUIDE.md`](LOCALIZATION_GUIDE.md) | 다국어 리소스 |
 | [`Solutions/Tools/Ds2.TutorialVerification/README.md`](Solutions/Tools/Ds2.TutorialVerification/README.md) | 학습 모델 검증 실행기 |
 
 ## License and Notices

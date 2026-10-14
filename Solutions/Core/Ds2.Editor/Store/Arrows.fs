@@ -52,6 +52,9 @@ module internal DirectArrowOps =
                         Queries.arrowCallsOf arrow.ParentId store
                         |> ConnectionQueries.hasArrowKeyExcept expectedKey (Some arrow.Id)
                     if hasDuplicate then false
+                    elif ConnectionQueries.wouldRewireCreateCallCycle store arrowId newSourceId newTargetId then
+                        StoreLog.warn($"Reconnect rejected: Call cycle. arrowId={arrowId}")
+                        false
                     else
                         store.TrackMutate(store.ArrowCalls, arrowId, fun a ->
                             a.SourceId <- newSourceId
@@ -276,6 +279,9 @@ type DsStoreArrowsExtensions =
                     Queries.arrowCallsOf arrow.ParentId store
                     |> ConnectionQueries.hasArrowKeyExcept expectedKey (Some arrow.Id)
                 if hasDuplicate then false
+                elif ConnectionQueries.wouldReverseCreateCallCycle store arrowId then
+                    StoreLog.warn($"Reverse rejected: Call cycle. arrowId={arrowId}")
+                    false
                 else
                     store.WithTransaction("화살표 방향 변경", fun () ->
                         store.TrackMutate(store.ArrowCalls, arrowId, fun a ->
@@ -316,6 +322,10 @@ type DsStoreArrowsExtensions =
                     if not conflict then callAccepted.Add(arrowId)
                 | None -> ()
 
+        // Call 화살표는 함께 뒤집어도 순환이 생기지 않는 것만 받아들인다.
+        let callAccepted =
+            ConnectionQueries.acceptCallReversalsWithoutCycle store (List.ofSeq callAccepted)
+            |> ResizeArray
         let total = workAccepted.Count + callAccepted.Count
         if total > 0 then
             StoreLog.debug($"ReverseArrowsBatch: {total} items")

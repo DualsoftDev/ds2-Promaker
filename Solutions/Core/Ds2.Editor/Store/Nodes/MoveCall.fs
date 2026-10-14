@@ -8,8 +8,11 @@ open Ds2.Core.Store
 /// Flow 간 Call 이동의 사전 검증 결과.
 /// Movable 외의 케이스는 모두 차단 사유 — UI 는 사유를 사용자에게 보여주고 작업을 취소.
 type CrossFlowMoveValidation =
-    /// (resolvedCallIds, targetFlowId, sourceFlowIds)
+    /// (resolvedIds, targetFlowId, sourceFlowIds) — Call 이동은 Call id, Work 이동은 Work id.
     | Movable of (Guid list * Guid * Guid list)
+    /// 이동하려는 Call/Work 가 Reference 묶음(Reference 이거나 Reference 를 거느린 원본)에 속한다. 이동은 원본을 옮기고
+    /// 원래 자리의 묶음을 지우는 방식이라, 허용하면 Reference 가 아니라 원본이 옮겨지고 나머지 Reference 가 사라진다.
+    | ReferencesInvolved of Guid list
     /// callIds 중 일부가 store 에서 resolve 안 됨 (이미 삭제된 ID 등).
     | NotResolvable of Guid list
     /// 모든 source Call 의 ParentId == targetWorkId — 의미상 no-op.
@@ -97,8 +100,10 @@ type DsStoreCallMoveExtensions =
     /// RenameSourceSystem 모드 가능 여부를 사전 검사. (devAlias * conflict) list 반환.
     /// 빈 리스트면 Rename 모드 안전. UI Dialog 가 라디오 disable 여부 판단용으로 호출.
     [<Extension>]
+    /// RenameSourceSystem 모드의 device 충돌 사전 검사 — 대상 Flow 기준. Call 이동과 Work 이동이 같은 검사를 쓴다
+    /// (예전엔 대상 Work 를 받아, 대상 Work 가 없는 Work 이동은 검사를 건너뛰었다).
     static member GetRenameSourceSystemConflicts
-        (store: DsStore, callIds: seq<Guid>, targetWorkId: Guid)
+        (store: DsStore, callIds: seq<Guid>, targetFlowId: Guid)
         : (string * RenameDeviceConflict) list =
         let resolved =
             callIds
@@ -108,19 +113,16 @@ type DsStoreCallMoveExtensions =
             |> Seq.toList
         if resolved.IsEmpty then []
         else
-            match Queries.getWork targetWorkId store with
+            match Queries.getFlow targetFlowId store with
             | None -> []
-            | Some targetWork ->
-                match Queries.getFlow targetWork.ParentId store with
+            | Some targetFlow ->
+                let projectIdOpt =
+                    Queries.getSystem targetFlow.ParentId store
+                    |> Option.bind (fun s -> StoreHierarchyQueries.findProjectOfSystem store s.Id)
+                match projectIdOpt with
                 | None -> []
-                | Some targetFlow ->
-                    let projectIdOpt =
-                        Queries.getSystem targetFlow.ParentId store
-                        |> Option.bind (fun s -> StoreHierarchyQueries.findProjectOfSystem store s.Id)
-                    match projectIdOpt with
-                    | None -> []
-                    | Some pid ->
-                        PasteDeviceOps.collectRenameConflicts store (resolved |> List.map (fun c -> c.Id)) targetFlow.Name pid
+                | Some pid ->
+                    PasteDeviceOps.collectRenameConflicts store (resolved |> List.map (fun c -> c.Id)) targetFlow.Name pid
 
     [<Extension>]
     static member CanMoveCallsAcrossFlow
@@ -134,7 +136,13 @@ type DsStoreCallMoveExtensions =
         let resolved = requested |> List.choose (fun id -> Queries.getCall id store)
         let resolvedIds = resolved |> List.map (fun c -> c.Id) |> Set.ofList
         let missing = requested |> List.filter (fun id -> not (resolvedIds.Contains id))
+        let referenceInvolved =
+            callIds
+            |> Seq.distinct
+            |> Seq.filter (fun id -> (Queries.getCall id store).IsSome && (Queries.callReferenceGroupOf id store).Length > 1)
+            |> Seq.toList
         if not missing.IsEmpty then NotResolvable missing
+        elif not referenceInvolved.IsEmpty then ReferencesInvolved referenceInvolved
         else
             match Queries.getWork targetWorkId store with
             | None -> InvalidTarget
@@ -187,28 +195,41 @@ type DsStoreCallMoveExtensions =
         (store: DsStore, apiCallMap: Map<Guid, ApiCall>) =
         if apiCallMap.IsEmpty then ()
         else
-            let rec walk (conditions: ResizeArray<Condition>) (changed: bool ref) =
+            // 바꿀 대상을 먼저 찾고, 실제 교체는 TrackMutate 안에서 한다 — 예전엔 교체한 뒤에 TrackMutate 를 불러 스냅샷이
+            // 이미 바뀐 상태라 Undo 가 원래 참조로 되돌리지 못했다. 조건 leaf 는 본체 ApiCall 과 같은 Id 의 독립 사본으로 둔다
+            // (DsStore.RebuildApiCallsDictionary 규약) — 본체 객체를 그대로 넣으면 leaf 스펙 편집이 본체까지 바꾼다.
+            let rec needsRewire (conditions: ResizeArray<Condition>) =
+                conditions
+                |> Seq.exists (fun c ->
+                    c.ApiCalls |> Seq.exists (fun ac -> apiCallMap.ContainsKey ac.Id)
+                    || needsRewire c.Children)
+            let rec rewire (conditions: ResizeArray<Condition>) =
                 for c in conditions do
-                    let mutable i = 0
-                    while i < c.ApiCalls.Count do
+                    for i in 0 .. c.ApiCalls.Count - 1 do
                         let ac = c.ApiCalls.[i]
                         match Map.tryFind ac.Id apiCallMap with
-                        | Some newAc when not (obj.ReferenceEquals(ac, newAc)) ->
-                            c.ApiCalls.[i] <- newAc
-                            changed.Value <- true
-                        | _ -> ()
-                        i <- i + 1
-                    walk c.Children changed
-            for kvp in store.CallsReadOnly do
-                let touched = ref false
-                walk kvp.Value.Conditions touched
-                if touched.Value then
-                    store.TrackMutate(store.Calls, kvp.Key, fun _ -> ())
-            for kvp in store.WorksReadOnly do
-                let touched = ref false
-                walk kvp.Value.Conditions touched
-                if touched.Value then
-                    store.TrackMutate(store.Works, kvp.Key, fun _ -> ())
+                        | Some newAc ->
+                            let leaf = newAc.DeepCopy()
+                            leaf.Id <- newAc.Id
+                            leaf.ContactKind <- ac.ContactKind
+                            leaf.InputSpec <- ac.InputSpec
+                            c.ApiCalls.[i] <- leaf
+                        | None -> ()
+                    rewire c.Children
+            let touchedCalls =
+                store.CallsReadOnly
+                |> Seq.filter (fun kvp -> needsRewire kvp.Value.Conditions)
+                |> Seq.map (fun kvp -> kvp.Key)
+                |> Seq.toList
+            for id in touchedCalls do
+                store.TrackMutate(store.Calls, id, fun call -> rewire call.Conditions)
+            let touchedWorks =
+                store.WorksReadOnly
+                |> Seq.filter (fun kvp -> needsRewire kvp.Value.Conditions)
+                |> Seq.map (fun kvp -> kvp.Key)
+                |> Seq.toList
+            for id in touchedWorks do
+                store.TrackMutate(store.Works, id, fun work -> rewire work.Conditions)
 
     [<Extension>]
     static member MoveCallsAcrossFlow
@@ -279,19 +300,48 @@ type DsStoreCallMoveExtensions =
     /// Call 이동(MoveCallsAcrossFlow)과 동일하게 device mode 를 적용한다: target Flow 에 paste
     /// (pasteWorksToFlowBatch 가 Work+Call+arrow+device 처리) 후 원본 Work cascade-remove.
     /// 반환 = target Flow 에 새로 생성된 Work id 리스트. 이미 그 Flow 인 Work 는 제외.
+    /// Work cross-flow 이동 가능 여부. Call 이동과 같은 규칙 — Reference 묶음에 속한 Work/Call 은 막고,
+    /// RenameSourceSystem 모드는 대상 Flow 기준 device 충돌을 검사한다. Movable 의 id = 실제로 옮길 Work(이미 그 Flow 인 것 제외).
+    [<Extension>]
+    static member CanMoveWorksAcrossFlow
+        (store: DsStore, workIds: seq<Guid>, targetFlowId: Guid, mode: CrossFlowDeviceMode)
+        : CrossFlowMoveValidation =
+        match Queries.getFlow targetFlowId store with
+        | None -> InvalidTarget
+        | Some targetFlow ->
+            let requested = workIds |> Seq.distinct |> Seq.toList
+            let missing = requested |> List.filter (fun id -> not (store.Works.ContainsKey id))
+            if not missing.IsEmpty then NotResolvable missing
+            else
+                let movables =
+                    requested
+                    |> List.choose (fun id -> Queries.getWork id store)
+                    |> List.filter (fun w -> w.ParentId <> targetFlowId)
+                let movableCalls = movables |> List.collect (fun w -> Queries.callsOf w.Id store)
+                let referenceInvolved =
+                    [ for w in movables do
+                        if (Queries.referenceGroupOf w.Id store).Length > 1 then yield w.Id
+                      for c in movableCalls do
+                        if (Queries.callReferenceGroupOf c.Id store).Length > 1 then yield c.Id ]
+                if not referenceInvolved.IsEmpty then ReferencesInvolved referenceInvolved
+                else
+                    let sourceFlowIds = movables |> List.map (fun w -> w.ParentId) |> List.distinct
+                    let movable = Movable(movables |> List.map (fun w -> w.Id), targetFlowId, sourceFlowIds)
+                    match mode with
+                    | CrossFlowDeviceMode.RenameSourceSystem when not movableCalls.IsEmpty ->
+                        let conflicts =
+                            DsStoreCallMoveExtensions.GetRenameSourceSystemConflicts(
+                                store, movableCalls |> List.map (fun c -> c.Id), targetFlow.Id)
+                        if not conflicts.IsEmpty then RenameModeConflicts conflicts else movable
+                    | _ -> movable
+
     [<Extension>]
     static member MoveWorksAcrossFlow
         (store: DsStore, workIds: seq<Guid>, targetFlowId: Guid, mode: CrossFlowDeviceMode)
         : Guid list =
-        match Queries.getFlow targetFlowId store with
-        | None -> []
-        | Some _ ->
-            let movables =
-                workIds
-                |> Seq.distinct
-                |> Seq.choose (fun id -> Queries.getWork id store)
-                |> Seq.filter (fun w -> w.ParentId <> targetFlowId)
-                |> Seq.toList
+        match DsStoreCallMoveExtensions.CanMoveWorksAcrossFlow(store, workIds, targetFlowId, mode) with
+        | Movable(movableIds, _, _) when not movableIds.IsEmpty ->
+            let movables = movableIds |> List.choose (fun id -> Queries.getWork id store)
             if movables.IsEmpty then []
             else
                 let mutable pastedIds = []
@@ -304,3 +354,4 @@ type DsStoreCallMoveExtensions =
                     CascadeRemove.removeOrphanApiCalls store)
                 if not pastedIds.IsEmpty then store.EmitRefreshAndHistory()
                 pastedIds
+        | _ -> []

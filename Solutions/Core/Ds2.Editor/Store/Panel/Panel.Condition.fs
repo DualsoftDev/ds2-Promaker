@@ -56,9 +56,19 @@ module internal ConditionTreeOps =
         if apiCall.InputSpec = ValueSpec.UndefinedValue then
             apiCall.InputSpec <- defaultConditionInputSpec
 
-    let rec build (store: DsStore) (dto: ConditionTreeDto) (typeOpt: ConditionType option) : Condition =
+    /// 조건 트리의 leaf ApiCall 을 Id 로 모은다(Inverter placeholder 제외).
+    let rec collectLeaves (acc: Map<Guid, ApiCall>) (cond: Condition) : Map<Guid, ApiCall> =
+        let acc =
+            cond.ApiCalls
+            |> Seq.filter (fun ac -> ac.ContactKind <> ContactKind.Inverter)
+            |> Seq.fold (fun (m: Map<Guid, ApiCall>) ac -> m.Add(ac.Id, ac)) acc
+        cond.Children |> Seq.fold collectLeaves acc
+
+    /// existing: 교체되는 기존 트리의 leaf. 같은 Id 의 leaf 가 있으면 그것을 복사해 조건 고유 스펙(InputSpec 등)을 보존한다 —
+    /// 예전엔 항상 store 원본 ApiCall 을 복사해, 패널에서 바꿔 둔 leaf 스펙이 래더 편집기로 저장하면 기본값으로 돌아갔다.
+    let rec buildPreserving (store: DsStore) (existing: Map<Guid, ApiCall>) (dto: ConditionTreeDto) (typeOpt: ConditionType option) : Condition =
         let cc = Condition(IsOR = dto.IsOR, IsInverted = dto.IsInverted, Type = typeOpt)
-        // items: 기존 store 의 ApiCall 을 deep copy 해서 spec 보존. ContactKind 적용.
+        // items: 기존 leaf(없으면 store 의 ApiCall)를 deep copy 해서 spec 보존. ContactKind 적용.
         let kinds = dto.ApiCallKinds
         let n = dto.ApiCallIds.Count
         for i in 0 .. n - 1 do
@@ -70,7 +80,11 @@ module internal ConditionTreeOps =
                 dummy.ContactKind <- ContactKind.Inverter
                 cc.ApiCalls.Add(dummy)
             else
-                match Queries.getApiCall sid store with
+                let source =
+                    match Map.tryFind sid existing with
+                    | Some leaf -> Some leaf
+                    | None -> Queries.getApiCall sid store
+                match source with
                 | Some src ->
                     let copy = src.DeepCopy()
                     copy.Id <- src.Id
@@ -89,8 +103,11 @@ module internal ConditionTreeOps =
             dummy.ContactKind <- kind
             cc.ApiCalls.Add(dummy)
         for child in dto.Children do
-            cc.Children.Add(build store child None)  // children 은 Type 미설정
+            cc.Children.Add(buildPreserving store existing child None)  // children 은 Type 미설정
         cc
+
+    let build (store: DsStore) (dto: ConditionTreeDto) (typeOpt: ConditionType option) : Condition =
+        buildPreserving store Map.empty dto typeOpt
 
 
 // =============================================================================
@@ -130,8 +147,18 @@ type DsStorePanelConditionExtensions =
         DirectPanelOps.mutateCallProps store callId "Call 조건 트리 교체" (fun c ->
             // 기존 condType conditions 제거.
             let toRemove = c.Conditions |> Seq.filter (fun cc -> cc.Type = Some condType) |> Seq.toList
+            let existing = toRemove |> List.fold ConditionTreeOps.collectLeaves Map.empty
             for cc in toRemove do c.Conditions.Remove(cc) |> ignore
-            c.Conditions.Add(ConditionTreeOps.build store tree (Some condType)))
+            c.Conditions.Add(ConditionTreeOps.buildPreserving store existing tree (Some condType)))
+
+    /// 해당 type 의 조건 트리를 모두 지운다 — 조건 편집기에서 leaf 를 전부 지우고 저장했을 때(명시적 삭제).
+    /// 예전엔 leaf 0개 저장을 "빈 트리 방지" 로 조용히 건너뛰어, 지웠다고 생각한 조건이 그대로 남았다.
+    [<Extension>]
+    static member ClearCallConditionTree(store: DsStore, callId: Guid, condType: ConditionType) =
+        Queries.requireNonReferenceCall callId store
+        StoreLog.requireCall(store, callId) |> ignore
+        DirectPanelOps.mutateCallProps store callId "Call 조건 비우기" (fun c ->
+            c.Conditions.RemoveAll(fun cc -> cc.Type = Some condType) |> ignore)
 
     /// 단일 트랜잭션: 조건 생성 + ApiCall 추가 (드래그&드롭용)
     [<Extension>]
@@ -299,6 +326,13 @@ type DsStorePanelWorkConditionExtensions =
         let cond = Condition(Type = Some condType)
         DirectPanelOps.mutateWorkProps store workId "Work 조건 추가" (fun w -> w.Conditions.Add(cond))
 
+    /// Work 쪽 — ClearCallConditionTree 참조.
+    [<Extension>]
+    static member ClearWorkConditionTree(store: DsStore, workId: Guid, condType: ConditionType) =
+        StoreLog.requireWork(store, workId) |> ignore
+        DirectPanelOps.mutateWorkProps store workId "Work 조건 비우기" (fun w ->
+            w.Conditions.RemoveAll(fun cc -> cc.Type = Some condType) |> ignore)
+
     [<Extension>]
     static member ReplaceWorkConditionTree(store: DsStore, workId: Guid, condType: ConditionType,
                                             tree: ConditionTreeDto) =
@@ -306,8 +340,9 @@ type DsStorePanelWorkConditionExtensions =
         StoreLog.requireWork(store, workId) |> ignore
         DirectPanelOps.mutateWorkProps store workId "Work 조건 트리 교체" (fun w ->
             let toRemove = w.Conditions |> Seq.filter (fun cc -> cc.Type = Some condType) |> Seq.toList
+            let existing = toRemove |> List.fold ConditionTreeOps.collectLeaves Map.empty
             for cc in toRemove do w.Conditions.Remove(cc) |> ignore
-            w.Conditions.Add(ConditionTreeOps.build store tree (Some condType)))
+            w.Conditions.Add(ConditionTreeOps.buildPreserving store existing tree (Some condType)))
 
     [<Extension>]
     static member AddWorkConditionWithApiCalls(store: DsStore, workId: Guid, condType: ConditionType, sourceApiCallIds: Guid seq) : Guid =

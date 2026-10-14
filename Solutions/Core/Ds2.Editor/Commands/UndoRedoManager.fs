@@ -70,6 +70,14 @@ type UndoRedoManager(maxSize: int, maxSnapshotBytes: int64) =
             undoStack.RemoveLast()
 
     member _.UndoLabels = undoStack |> Seq.map (fun t -> t.Label) |> Seq.toList
+
+    /// 이력의 현재 위치 = 맨 위 undo 트랜잭션(없으면 null). 되돌리기·다시 실행은 같은 인스턴스를 두 스택 사이에서 옮기므로,
+    /// 저장 시점의 값과 참조 비교하면 "저장한 상태로 돌아왔는지" 를 정확히 안다 — undo 개수로는 저장 후 되돌리기나
+    /// 되돌린 뒤 새 편집을 구분하지 못했다.
+    member _.CurrentPosition : obj =
+        match undoStack.First with
+        | null -> null
+        | first -> box first.Value
     member _.RedoLabels = redoStack |> Seq.map (fun t -> t.Label) |> Seq.toList
 
     /// 현재 undo/redo 이력이 붙들고 있는 스냅샷 크기 합(바이트 근사치). 진단·테스트용.

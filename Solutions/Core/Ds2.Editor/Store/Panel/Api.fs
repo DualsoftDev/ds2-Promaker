@@ -43,18 +43,32 @@ type DsStorePanelApiDefExtensions =
 
     [<Extension>]
     static member AddApiDefWithProperties
-        (store: DsStore, name: string, systemId: Guid) : Guid =
-        StoreLog.debug($"name={name}, systemId={systemId}")
+        (store: DsStore, name: string, systemId: Guid,
+         actionType: ActionType, sensingType: SensingType,
+         txGuid: Guid option, rxGuid: Guid option, description: string) : Guid =
+        StoreLog.debug($"name={name}, systemId={systemId}, actionType={actionType}, sensingType={sensingType}")
         if System.String.IsNullOrWhiteSpace name then
             invalidOp "ApiDef 이름은 비어있거나 공백만일 수 없습니다."
         StoreLog.requireSystem(store, systemId) |> ignore
         if not (Queries.isApiDefNameUniqueInSystem systemId name None store) then
             invalidOp $"같은 System 내에 이미 '{name}' ApiDef가 존재합니다."
         let apiDef = ApiDef(name, systemId)
+        apiDef.ActionType <- actionType
+        apiDef.SensingType <- sensingType
+        apiDef.TxGuid <- txGuid
+        apiDef.RxGuid <- rxGuid
+        apiDef.Description <- (if System.String.IsNullOrEmpty description then None else Some description)
         store.WithTransaction($"ApiDef 추가 \"{name}\"", fun () ->
             store.TrackAdd(store.ApiDefs, apiDef))
         store.EmitAndHistory(ApiDefAdded apiDef)
         apiDef.Id
+
+    /// 이름만으로 ApiDef 추가 — Action/Sensing 은 기본값(Normal), Tx/Rx·설명 없음.
+    [<Extension>]
+    static member AddApiDefWithProperties
+        (store: DsStore, name: string, systemId: Guid) : Guid =
+        DsStorePanelApiDefExtensions.AddApiDefWithProperties(
+            store, name, systemId, ActionType.Normal None, SensingType.Normal None, None, None, "")
 
     [<Extension>]
     static member UpdateApiDef
@@ -145,10 +159,12 @@ type DsStorePanelApiCallExtensions =
         StoreLog.requireApiCallInCall(call, apiCallId)
         let outputSpec = PropertyPanelValueSpec.parseFromPanel outTypeIndex outText
         let inputSpec = PropertyPanelValueSpec.parseFromPanel inTypeIndex inText
-        let updated = DirectPanelOps.buildApiCall newApiDef "" (Some apiCallName) outputTagName outputAddress inputTagName inputAddress (Some apiCallId) inputSpec outputSpec
+        // 지웠다가 새로 만들면 OriginFlowId · ContactKind · 태그 설명/데이터 타입/기본값이 사라지고 목록 끝으로 밀렸다 —
+        // 기존 ApiCall 을 제자리에서 고친다(ApiCall 사전을 기록하므로 Undo 도 그대로 된다).
         DirectPanelOps.withTransactionCallProps store callId "Update ApiCall" (fun () ->
-            DirectPanelOps.removeApiCallFromStore store call apiCallId
-            DirectPanelOps.addApiCallToStore store call updated)
+            store.TrackMutate(store.ApiCalls, apiCallId, fun apiCall ->
+                DirectPanelOps.applyPanelEdits
+                    apiCall newApiDef apiCallName outputTagName outputAddress inputTagName inputAddress inputSpec outputSpec))
         true
 
     [<Extension>]

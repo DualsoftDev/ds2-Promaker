@@ -61,15 +61,15 @@ View3DWindow (WPF Window)
 | `Solutions/View/Ds2.3DView/Ds2.3DView.Core/SceneEngine.fs` | 1 | Public API 진입점 |
 | `Solutions/View/Ds2.3DView/Ds2.3DView.Core/SelectionState.fs` | 1 | 선택 상태 |
 | `Solutions/View/Ds2.3DView/Ds2.3DView.Core/Persistence.fs` | 1 | ILayoutStore 추상화 |
-| `Apps/Promaker/Promaker/wwwroot/js/three-interop.js` | 2 | Three.js 씬 엔진 (~5600줄) |
-| `Apps/Promaker/Promaker/wwwroot/js/ds-3d-commons.js` | 2 | 보조 시각 효과 |
-| `Apps/Promaker/Promaker/wwwroot/js/wpf-dotnet-polyfill.js` | 2↔3 | Blazor 콜백 → WebView2 브릿지 |
-| `Apps/Promaker/Promaker/wwwroot/facility3d.html` | 2 | HTML 호스트 + 컨텍스트 메뉴 |
-| `Apps/Promaker/Promaker/ViewModels/Simulation/ThreeDViewState.cs` | 3 | WPF ViewModel + WebView2 전송 |
-| `Apps/Promaker/Promaker/Windows/View3DWindow.xaml(.cs)` | 3 | WPF 창, WebView2 초기화 |
-| `Apps/Promaker/Promaker/ViewModels/Simulation/SimulationPanelState.Events.cs` | 3 | 시뮬 → 3D 이벤트 라우팅 |
-| `Apps/Promaker/Promaker/ViewModels/Shell/MainViewModel.cs` | 3 | Open3DViewCommand |
-| `Apps/Promaker/Promaker/Controls/Shell/MainToolbarEtcContent.xaml` | 3 | 3D 툴바 버튼 |
+| `Promaker/wwwroot/js/three-interop.js` | 2 | Three.js 씬 엔진 (~5600줄) |
+| `Promaker/wwwroot/js/ds-3d-commons.js` | 2 | 보조 시각 효과 |
+| `Promaker/wwwroot/js/wpf-dotnet-polyfill.js` | 2↔3 | Blazor 콜백 → WebView2 브릿지 |
+| `Promaker/wwwroot/facility3d.html` | 2 | HTML 호스트 + 컨텍스트 메뉴 |
+| `Promaker/ViewModels/Simulation/ThreeDViewState.cs` | 3 | WPF ViewModel + WebView2 전송 |
+| `Promaker/Windows/View3DWindow.xaml(.cs)` | 3 | WPF 창, WebView2 초기화 |
+| `Promaker/ViewModels/Simulation/SimulationPanelState.Events.cs` | 3 | 시뮬 → 3D 이벤트 라우팅 |
+| `Promaker/ViewModels/Shell/MainViewModel.cs` | 3 | Open3DViewCommand |
+| `Promaker/Controls/Shell/MainToolbarEtcContent.xaml` | 3 | 3D 툴바 버튼 |
 
 ---
 

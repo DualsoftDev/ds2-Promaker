@@ -69,9 +69,11 @@ module internal StoreAuthoring =
         dict.[entity.Id] <- entity
         recordAffectedId store entity.Id
         recordSnapshotBytes store backupBytes
+        // Undo/Redo 는 넣을 때마다 스냅샷의 새 사본을 넣는다. 스냅샷 객체 자체를 store 에 넣으면 다음 편집(trackMutate)이
+        // 그 객체를 제자리에서 바꿔 스냅샷이 오염되고, 되돌리기·다시 실행을 섞으면 이력과 모델 내용이 어긋났다.
         recordUndo store {
             Undo = fun () -> dict.Remove(entity.Id) |> ignore
-            Redo = fun () -> dict.[entity.Id] <- backup
+            Redo = fun () -> dict.[entity.Id] <- DeepCopyHelper.backupEntityAs backup
             Description = $"Add {typeof<'T>.Name} {entity.Id}"
         }
 
@@ -83,7 +85,7 @@ module internal StoreAuthoring =
             recordAffectedId store id
             recordSnapshotBytes store backupBytes
             recordUndo store {
-                Undo = fun () -> dict.[id] <- backup
+                Undo = fun () -> dict.[id] <- DeepCopyHelper.backupEntityAs backup
                 Redo = fun () -> dict.Remove(id) |> ignore
                 Description = $"Remove {typeof<'T>.Name} {id}"
             }
@@ -98,8 +100,8 @@ module internal StoreAuthoring =
             recordAffectedId store id
             recordSnapshotBytes store (oldBytes + newBytes)
             recordUndo store {
-                Undo = fun () -> dict.[id] <- oldSnapshot
-                Redo = fun () -> dict.[id] <- newSnapshot
+                Undo = fun () -> dict.[id] <- DeepCopyHelper.backupEntityAs oldSnapshot
+                Redo = fun () -> dict.[id] <- DeepCopyHelper.backupEntityAs newSnapshot
                 Description = $"Mutate {typeof<'T>.Name} {id}"
             }
         | false, _ -> invalidOp $"Entity not found: {id}"
@@ -273,6 +275,11 @@ type DsStoreAuthoringExtensions =
     [<Extension>]
     static member EmitHistoryChanged(store: DsStore) =
         StoreAuthoring.emitHistoryChanged store
+
+    /// 편집 이력의 현재 위치(UndoRedoManager.CurrentPosition). 저장 시점 값과 ReferenceEquals 로 비교해 "저장 안 됨" 을 판정한다.
+    [<Extension>]
+    static member HistoryPosition(store: DsStore) : obj =
+        (StoreEditorState.get store).UndoManager.CurrentPosition
 
     [<Extension>]
     static member EmitAndHistory(store: DsStore, evt: EditorEvent) =

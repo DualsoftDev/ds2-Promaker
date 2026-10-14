@@ -632,3 +632,25 @@ module NamedGroupPasteTests =
         | PasteResult.Ok ids -> ids
         | result -> failwithf "%A" result
 
+
+
+module ApiDefCreateRegressionTests =
+
+    /// ApiDef 추가 대화상자의 Action/Sensing · Tx/Rx Work · 설명이 이름만 남고 버려지던 문제 — 추가 API 가 모두 받는다.
+    [<Fact>]
+    let ``AddApiDefWithProperties stores action, sensing, tx rx and description`` () =
+        let store = createStore ()
+        let _, system, flow, work = setupBasicHierarchy store
+        let rx = addWork store "Rx" flow.Id
+
+        let id =
+            store.AddApiDefWithProperties(
+                "ADV", system.Id, ActionType.Pulse (Some 200), SensingType.Latch 50,
+                Some work.Id, Some rx.Id, "전진")
+
+        let apiDef = store.ApiDefs.[id]
+        Assert.Equal(ActionType.Pulse (Some 200), apiDef.ActionType)
+        Assert.Equal(SensingType.Latch 50, apiDef.SensingType)
+        Assert.Equal(Some work.Id, apiDef.TxGuid)
+        Assert.Equal(Some rx.Id, apiDef.RxGuid)
+        Assert.Equal(Some "전진", apiDef.Description)

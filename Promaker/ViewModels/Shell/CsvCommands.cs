@@ -1,0 +1,134 @@
+using System;
+using System.Windows;
+using CommunityToolkit.Mvvm.Input;
+using Ds2.CSV;
+using Ds2.Core.Store;
+using Ds2.Editor;
+using Microsoft.Win32;
+using Promaker.Dialogs;
+using Promaker.Presentation;
+
+namespace Promaker.ViewModels;
+
+public partial class MainViewModel
+{
+    private void ImportCsvStore(DsStore store, string sourceName)
+    {
+        PrepareForLoadedStore();
+        _store.ReplaceStore(store);
+        _store.ClearHistory();
+        _currentFilePath = null;
+        FileWatcher.ResetSignature();
+        // CSV(대개 클립보드 붙여넣기)로 만든 모델은 어디에도 저장되지 않은 새 문서다 — 저장 안 됨으로 둬야 닫을 때 묻는다.
+        MarkSavedState();
+        MarkNonHistoryChange();
+        HasProject = true;
+        UpdateTitle();
+        Log.Info($"CSV imported: {sourceName}");
+        StatusText = $"CSV 불러오기 완료 ({sourceName})";
+        RequestRebuildAll(AfterFileLoad);
+    }
+
+    private bool TryCreateCsvStore(out DsStore store, out string sourceName)
+    {
+        store = default!;
+        sourceName = string.Empty;
+
+        var dialog = new CsvImportDialog();
+        if (_dialogService.ShowDialog(dialog) != true)
+            return false;
+
+        sourceName = dialog.SourceDisplayName;
+        // 7열(csvForAI)은 Active System 이름을 SYS 행에서 가져온다 — 모델이 스스로 이름을 갖는다.
+        var loadResult = dialog.DetectedFormat switch
+        {
+            CsvFormat.Basic3 =>
+                CsvImporter.loadBasicProjectWith(dialog.AutoAddStartClear, dialog.BasicDocument, dialog.ProjectName, dialog.SystemName),
+            CsvFormat.AiModel =>
+                CsvImporter.loadAiProject(dialog.AiDocument, dialog.ProjectName),
+            _ =>
+                CsvImporter.loadProject(dialog.Document, dialog.ProjectName, dialog.SystemName),
+        };
+        return TryGetResult(
+            loadResult,
+            errors => $"CSV 불러오기 실패:\n{JoinLines(errors)}",
+            out store);
+    }
+
+    /// <summary>"CSV로부터 모델만들기" 진입점.
+    /// PR-A5 — PLC 심볼 import (SymbolWizard / Ds2.SymbolImport) 는 별도 툴로 분리 예정으로 본 진입점에서 제거.
+    /// 사용자는 바로 CsvImportDialog (모델 데이터 CSV) 흐름으로 진입.</summary>
+    [RelayCommand]
+    private void ImportCsv()
+    {
+        if (!GuardSimulationSemanticEdit("CSV 로부터 모델 만들기"))
+            return;
+
+        if (!ConfirmDiscardChanges())
+            return;
+
+        TryRunFileOperation(
+            "Import CSV",
+            () =>
+            {
+                if (!TryCreateCsvStore(out var store, out var sourceName))
+                    return;
+
+                ImportCsvStore(store, sourceName);
+            },
+            ex => $"CSV 불러오기 실패: {ex.Message}");
+    }
+
+    [RelayCommand(CanExecute = nameof(HasProject))]
+    private void ExportCsv()
+    {
+        string suggestedName;
+        if (_currentFilePath is not null)
+        {
+            suggestedName = System.IO.Path.GetFileNameWithoutExtension(_currentFilePath);
+        }
+        else
+        {
+            var projects = Queries.allProjects(_store);
+            suggestedName = !projects.IsEmpty ? projects.Head.Name : "project";
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "CSV 내보내기",
+            Filter = "CSV Files (*.csv)|*.csv|All Files (*.*)|*.*",
+            DefaultExt = FileExtensions.Csv,
+            FileName = $"{suggestedName}.csv"
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        if (ExportCsvToPath(dialog.FileName))
+            CsvFileHelper.PromptOpenAfterExport(dialog.FileName, title: "프로젝트 CSV 내보내기");
+    }
+
+    private bool ExportCsvToPath(string filePath)
+    {
+        try
+        {
+            var result = CsvExporter.saveProjectToFile(_store, filePath);
+            if (result.IsOk)
+            {
+                Log.Info($"CSV exported: {filePath}");
+                StatusText = $"CSV 내보내기 완료 ({filePath})";
+                return true;
+            }
+
+            _dialogService.ShowWarning(result.ErrorValue);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"CSV export failed: {filePath}", ex);
+            _dialogService.ShowWarning($"CSV 내보내기 실패: {ex.Message}");
+            return false;
+        }
+    }
+
+}

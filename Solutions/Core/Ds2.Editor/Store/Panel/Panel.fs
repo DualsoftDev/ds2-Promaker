@@ -104,7 +104,38 @@ module internal DirectPanelOps =
 
     let removeApiCallFromStore (store: DsStore) (call: Call) (apiCallId: Guid) =
         store.TrackMutate(store.Calls, call.Id, fun current -> current.ApiCalls.RemoveAll(fun apiCall -> apiCall.Id = apiCallId) |> ignore)
-        store.TrackRemove(store.ApiCalls, apiCallId)
+        // ApiDef 선택으로 만든 Call 은 같은 ApiCall 을 함께 쓴다(Device.addCallWithLinkedApiDefs). 다른 Call 이 아직 쓰면
+        // 사전에서 지우지 않는다 — 지우면 그 Call 의 ApiCall 이 다음 Undo/Redo 의 재연결(RewireApiCallReferences)에서 사라졌다.
+        let sharedWithOtherCall =
+            store.CallsReadOnly.Values
+            |> Seq.exists (fun c -> c.Id <> call.Id && c.ApiCalls |> Seq.exists (fun ac -> ac.Id = apiCallId))
+        if not sharedWithOtherCall then
+            store.TrackRemove(store.ApiCalls, apiCallId)
+
+    /// 패널 편집값(이름·ApiDef·태그 이름/주소·스펙)을 기존 ApiCall 에 덮어쓴다. 나머지 필드(OriginFlowId, ContactKind,
+    /// 태그의 설명·데이터 타입·기본값)와 Call 안의 순서는 그대로 둔다. 이름이 비면 기존 이름을 유지한다.
+    let applyPanelEdits
+        (apiCall: ApiCall) (apiDef: ApiDef) (apiCallName: string)
+        (outputTagName: string) (outputAddress: string)
+        (inputTagName: string) (inputAddress: string)
+        (inputSpec: ValueSpec) (outputSpec: ValueSpec) =
+        let trim (s: string) = if isNull s then "" else s.Trim()
+        if not (String.IsNullOrWhiteSpace apiCallName) then
+            apiCall.Name <- apiCallName.Trim()
+        apiCall.ApiDefId <- Some apiDef.Id
+        let mergeTag (existing: IOTag option) (name: string) (address: string) =
+            if String.IsNullOrWhiteSpace name && String.IsNullOrWhiteSpace address then None
+            else
+                match existing with
+                | Some tag ->
+                    tag.Name <- trim name
+                    tag.Address <- trim address
+                    Some tag
+                | None -> Some(IOTag(trim name, trim address, ""))
+        apiCall.OutTag <- mergeTag apiCall.OutTag outputTagName outputAddress
+        apiCall.InTag <- mergeTag apiCall.InTag inputTagName inputAddress
+        apiCall.InputSpec <- inputSpec
+        apiCall.OutputSpec <- outputSpec
 
     let tryFindConditionRec (conditions: ResizeArray<Condition>) (condId: Guid) : Condition option =
         Queries.tryFindConditionRec conditions condId

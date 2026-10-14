@@ -590,3 +590,153 @@ module ArrowTests =
 
         Assert.False(changed)
         Assert.Contains(store.ArrowWorks.Values, fun arrow -> arrow.Id = arrowToReconnect.Id && arrow.TargetId = work3.Id)
+
+
+/// 편집 무결성 회귀 — Call 순환, Undo 스냅샷, ApiCall 편집·공유 삭제, 이력 위치.
+module EditIntegrityRegressionTests =
+
+    /// Work 하나에 Call c1→c2→c3 Start 체인. arrow s t = s→t 화살표.
+    let private chainOfThreeCalls () =
+        let store = createStore ()
+        let project, _, _, work = setupBasicHierarchy store
+        store.AddCallsWithDevice(project.Id, work.Id, [ "D.A1"; "D.A2"; "D.A3" ], true, None)
+        let calls = Queries.callsOf work.Id store
+        let c1, c2, c3 = calls.[0], calls.[1], calls.[2]
+        store.ConnectSelectionInOrder([ c1.Id; c2.Id; c3.Id ], ArrowType.Start) |> ignore
+        let arrow (s: Call) (t: Call) =
+            store.ArrowCalls.Values |> Seq.find (fun a -> a.SourceId = s.Id && a.TargetId = t.Id)
+        store, c1, c2, c3, arrow
+
+    /// 방향 전환도 새 연결과 같은 순환 금지 규칙을 따라야 한다. 예전엔 중복만 검사해 c1→c3 를 뒤집으면 c3→c1 이 생겨
+    /// 순환이 됐고, 그 Work 를 클릭하면 critical path 재귀로 앱이 흔적 없이 죽었다.
+    [<Fact>]
+    let ``reversing a call arrow that would close a cycle is rejected`` () =
+        let store, c1, _, c3, arrow = chainOfThreeCalls ()
+        store.ConnectSelectionInOrder([ c1.Id; c3.Id ], ArrowType.Start) |> ignore
+        let shortcut = arrow c1 c3
+
+        Assert.True(ConnectionQueries.wouldReverseCreateCallCycle store shortcut.Id)
+        Assert.False(store.ReverseArrow(shortcut.Id))
+        Assert.Equal(c1.Id, store.ArrowCalls.[shortcut.Id].SourceId)
+        Assert.Equal(c3.Id, store.ArrowCalls.[shortcut.Id].TargetId)
+
+    /// 재연결로 끝점을 상류 Call 로 옮기는 것도 순환이다(c2→c3 의 끝을 c1 로 → c1→c2→c1).
+    [<Fact>]
+    let ``reconnecting a call arrow onto an upstream call is rejected`` () =
+        let store, c1, c2, c3, arrow = chainOfThreeCalls ()
+        let second = arrow c2 c3
+
+        Assert.False(store.ReconnectArrow(second.Id, false, c1.Id))
+        Assert.Equal(c3.Id, store.ArrowCalls.[second.Id].TargetId)
+
+    /// 여러 화살표를 함께 뒤집을 때는 앞에서 받아들인 전환까지 반영해 하나씩 검사한다.
+    [<Fact>]
+    let ``batch reversal only accepts call reversals that keep the graph acyclic`` () =
+        let store, c1, c2, c3, arrow = chainOfThreeCalls ()
+        store.ConnectSelectionInOrder([ c1.Id; c3.Id ], ArrowType.Start) |> ignore
+        let shortcut, second = arrow c1 c3, arrow c2 c3
+
+        let changed = store.ReverseArrowsBatch([ shortcut.Id; second.Id ])
+
+        // c1→c3 를 뒤집으면 c1→c2→c3→c1 순환이라 거절, c2→c3 를 뒤집는 것은 순환이 없다.
+        Assert.Equal(1, changed)
+        Assert.Equal(c1.Id, store.ArrowCalls.[shortcut.Id].SourceId)
+        Assert.Equal(c3.Id, store.ArrowCalls.[second.Id].SourceId)
+        Assert.Equal(c2.Id, store.ArrowCalls.[second.Id].TargetId)
+
+    /// "선택 노드 연결" 은 앞쌍에서 더할 화살표까지 누적해 검사해야 한다. 기존 c3→c1 이 있을 때 c1,c2,c3 순서 연결은
+    /// 쌍마다 따로 보면 둘 다 통과하지만 합치면 c1→c2→c3→c1 순환이다.
+    [<Fact>]
+    let ``ordered connect detects a cycle formed together with existing arrows`` () =
+        let store = createStore ()
+        let project, _, _, work = setupBasicHierarchy store
+        store.AddCallsWithDevice(project.Id, work.Id, [ "D.A1"; "D.A2"; "D.A3" ], true, None)
+        let calls = Queries.callsOf work.Id store
+        let c1, c2, c3 = calls.[0], calls.[1], calls.[2]
+        store.ConnectSelectionInOrder([ c3.Id; c1.Id ], ArrowType.Start) |> ignore
+
+        Assert.True(ConnectionQueries.hasCallCycleInSequence store [ c1.Id; c2.Id; c3.Id ])
+        Assert.False(ConnectionQueries.hasCallCycleInSequence store [ c3.Id; c2.Id ])
+
+    /// Undo/Redo 는 넣을 때마다 스냅샷 사본을 넣어야 한다. 예전엔 Redo 가 스냅샷 객체 자체를 넣어, 다음 편집이 그 객체를
+    /// 제자리에서 바꿔 버렸다 — 아래 순서 끝에서 이력은 "A 로 변경" 만 적용된 상태인데 이름은 B 였다.
+    [<Fact>]
+    let ``redo after a later edit restores the redone value, not the later one`` () =
+        let store = createStore ()
+        let project = addProject store "Original"
+        store.RenameEntity(project.Id, EntityKind.Project, "A")
+        store.Undo()
+        store.Redo()
+        store.RenameEntity(project.Id, EntityKind.Project, "B")
+        store.Undo()
+        store.Undo()
+        store.Redo()
+
+        Assert.Equal("A", store.Projects.[project.Id].Name)
+
+    /// 패널에서 ApiCall 을 고치면 고친 칸만 바뀌어야 한다. 예전엔 지웠다 새로 만들어 OriginFlowId · 태그 설명/데이터 타입이
+    /// 사라지고 목록 끝으로 밀려 IO 주소 배정 순서까지 바뀌었다.
+    [<Fact>]
+    let ``panel edit of an ApiCall keeps its other fields and its position`` () =
+        let store = createStore ()
+        let project, _, _, work = setupBasicHierarchy store
+        store.AddCallsWithDevice(project.Id, work.Id, [ "D.A1" ], true, None)
+        let call = Queries.callsOf work.Id store |> List.head
+        let firstId = call.ApiCalls.[0].Id
+        let apiDefId = store.ApiCalls.[firstId].ApiDefId.Value
+        store.AddApiCallFromPanel(call.Id, apiDefId, "", "", "", "", 0, "", 0, "") |> ignore
+        let first = store.ApiCalls.[firstId]
+        let tag = IOTag("Out1", "%QX0.0", "솔레노이드")
+        tag.DataType <- IOTagDataType.INT
+        first.OutTag <- Some tag
+        let originBefore = first.OriginFlowId
+        Assert.True(originBefore.IsSome)
+
+        Assert.True(store.UpdateApiCallFromPanel(call.Id, firstId, apiDefId, "Renamed", "Out2", "%QX0.1", "", "", 0, "", 0, ""))
+
+        let apiCalls = store.Calls.[call.Id].ApiCalls
+        Assert.Equal(2, apiCalls.Count)
+        Assert.Equal(firstId, apiCalls.[0].Id)
+        let edited = apiCalls.[0]
+        Assert.Equal("Renamed", edited.Name)
+        Assert.Equal("%QX0.1", edited.OutTag.Value.Address)
+        Assert.Equal("솔레노이드", edited.OutTag.Value.Description)
+        Assert.Equal(IOTagDataType.INT, edited.OutTag.Value.DataType)
+        Assert.Equal(originBefore, edited.OriginFlowId)
+
+    /// ApiDef 선택으로 만든 Call 은 기존 ApiCall 을 함께 쓴다. 한 Call 에서 지워도 다른 Call 의 것은 남아야 하고 Undo/Redo 를
+    /// 거쳐도 사라지면 안 된다 — 예전엔 사전에서 지워져, 다음 Undo/Redo 의 재연결 때 다른 Call 에서도 빠졌다.
+    [<Fact>]
+    let ``removing a shared ApiCall from one call keeps it on the other call`` () =
+        let store = createStore ()
+        let project, _, _, work = setupBasicHierarchy store
+        store.AddCallsWithDevice(project.Id, work.Id, [ "D.A1" ], true, None)
+        let callA = Queries.callsOf work.Id store |> List.head
+        let sharedId = callA.ApiCalls.[0].Id
+        let callBId = store.AddCallWithLinkedApiDefs(work.Id, "E", "A1", [ store.ApiCalls.[sharedId].ApiDefId.Value ])
+        Assert.Contains(store.Calls.[callBId].ApiCalls, fun ac -> ac.Id = sharedId)
+
+        store.RemoveApiCallFromCall(callA.Id, sharedId)
+        store.Undo()
+        store.Redo()
+
+        Assert.DoesNotContain(store.Calls.[callA.Id].ApiCalls, fun ac -> ac.Id = sharedId)
+        Assert.Contains(store.Calls.[callBId].ApiCalls, fun ac -> ac.Id = sharedId)
+        Assert.True(store.ApiCalls.ContainsKey sharedId)
+
+    /// "저장 안 됨" 판정 기준 — 이력 위치는 되돌렸다 다시 실행하면 저장 시점과 같아지고, 되돌린 뒤 새로 편집하면 달라진다.
+    /// undo 개수로 판정하던 때는 저장 후 되돌리기나, 개수만 같은 다른 상태를 "저장됨" 으로 봤다.
+    [<Fact>]
+    let ``history position identifies the saved state across undo, redo and new edits`` () =
+        let store = createStore ()
+        let project = addProject store "Original"
+        store.RenameEntity(project.Id, EntityKind.Project, "Saved")
+        let saved = store.HistoryPosition()
+
+        store.Undo()
+        Assert.False(obj.ReferenceEquals(saved, store.HistoryPosition()))
+        store.Redo()
+        Assert.True(obj.ReferenceEquals(saved, store.HistoryPosition()))
+        store.Undo()
+        store.RenameEntity(project.Id, EntityKind.Project, "Other")
+        Assert.False(obj.ReferenceEquals(saved, store.HistoryPosition()))

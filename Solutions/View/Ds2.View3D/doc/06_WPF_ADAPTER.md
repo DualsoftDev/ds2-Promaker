@@ -1,9 +1,9 @@
 # Ds2 3D View — 06. WPF 어댑터 레이어
 
 **파일**:
-- `Apps/Promaker/Promaker/ViewModels/Simulation/ThreeDViewState.cs`
-- `Apps/Promaker/Promaker/Windows/View3DWindow.xaml(.cs)`
-- `Apps/Promaker/Promaker/ViewModels/Shell/MainViewModel.cs`
+- `Promaker/ViewModels/Simulation/ThreeDViewState.cs`
+- `Promaker/Windows/View3DWindow.xaml(.cs)`
+- `Promaker/ViewModels/Shell/MainViewModel.cs`
 
 ---
 

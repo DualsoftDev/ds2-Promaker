@@ -1,5 +1,0 @@
-<Project>
-  <!-- 공통 빌드 설정 + 버전 주입(BuildVersion.txt → Version/AssemblyVersion/FileVersion)은
-       Solutions/Directory.Build.props 가 저장소 전체에 적용한다. 여기선 그것만 끌어온다. -->
-  <Import Project="../../Solutions/Directory.Build.props" />
-</Project>

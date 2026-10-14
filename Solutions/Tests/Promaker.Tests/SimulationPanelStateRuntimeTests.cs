@@ -98,6 +98,36 @@ public sealed class SimulationPanelStateRuntimeTests
         });
     }
 
+    /// <summary>STEP 이 Work 시간만큼 기다리는 사이 엔진이 바뀌면(파일 열기·새 프로젝트·STOP 후 PLAY) 이 STEP 은 끝나야 한다.
+    /// 예전엔 기다림이 끝난 뒤 해제된 엔진의 EndStep 을 불러 ObjectDisposedException 으로 앱이 종료됐다.
+    /// 기다리는 동안 PLAY 는 막혀야 한다 — 재개한 뒤 끝나는 STEP 이 모든 Flow 를 Pause 로 되돌렸다.</summary>
+    [Fact]
+    public void Step_stops_without_touching_an_engine_replaced_while_waiting_and_blocks_play_meanwhile()
+    {
+        StaTestRunner.Run(() =>
+        {
+            var store = BuildSourceStore(out _);
+            var index = SimIndexModule.build(store, 10);
+            var engine = new FakeSimulationEngine(index) { StepBatchActive = true, NextEventMs = 50 };
+            var state = CreateState(() => store);
+            SetSimEngine(state, engine);
+            state.IsSimulating = true;
+            state.IsSimPaused = true;
+            state.SelectedSimWork = SimWorkItem.AutoStart;
+
+            var step = state.StepSimulationCommand.ExecuteAsync(null);
+            Assert.False(step.IsCompleted);
+            Assert.False(state.StartSimulationCommand.CanExecute(null));
+
+            SetSimEngine(state, new FakeSimulationEngine(index));
+
+            Assert.True(StaTestRunner.WaitUntil(3000, () => step.IsCompleted));
+            Assert.False(step.IsFaulted);
+            Assert.Equal(0, engine.EndStepCalls);
+            Assert.True(state.StartSimulationCommand.CanExecute(null));
+        });
+    }
+
     [Fact]
     public void Step_uses_begin_step_batch_without_resuming_runtime_thread()
     {
@@ -310,7 +340,9 @@ public sealed class SimulationPanelStateRuntimeTests
         public bool HasStartableWork => false;
         public bool HasActiveDuration => false;
         public long CurrentTimeMs => 0;
-        public FSharpOption<long> NextEventTimeMs => null!;
+        /// <summary>STEP 루프가 기다리게 하려면 0 보다 큰 값을 준다(None 이면 루프가 바로 끝난다).</summary>
+        public long? NextEventMs { get; set; }
+        public FSharpOption<long> NextEventTimeMs => NextEventMs is long ms ? FSharpOption<long>.Some(ms) : null!;
         public double SpeedMultiplier { get; set; } = 1.0;
         public bool TimeIgnore { get; set; }
         public SignalIOMap IOMap => throw new NotSupportedException();
@@ -340,7 +372,8 @@ public sealed class SimulationPanelStateRuntimeTests
             BeginStepBatchCalls.Add((selectedSourceGuid, autoStartSources));
             return [];
         }
-        public bool IsStepBatchActive(Guid[] batch) => false;
+        public bool StepBatchActive { get; set; }
+        public bool IsStepBatchActive(Guid[] batch) => StepBatchActive;
         public void AdvanceSimulationTo(long targetTimeMs) { }
         public void AdvanceSimulationToRealTime() { }
         public void InvalidateAbnormalObservations() { }
