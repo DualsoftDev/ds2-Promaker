@@ -787,3 +787,22 @@ module EditIntegrityRegressionTests =
         store.Undo()
         store.RenameEntity(project.Id, EntityKind.Project, "Other")
         Assert.False(obj.ReferenceEquals(saved, store.HistoryPosition()))
+
+    /// History 패널의 저장 지점 표시(#255)용 — 저장 위치가 패널 몇 번째 항목인지. 되돌려도 redo 쪽의 같은 항목을 가리키고,
+    /// 되돌린 뒤 새로 편집하면(redo 가 지워져) 이력에서 사라진다. 빈 이력은 "(초기 상태)" 항목(0)이다.
+    [<Fact>]
+    let ``history panel index of the saved position follows undo and disappears after a new edit`` () =
+        let store = createStore ()
+        Assert.Equal(0, store.HistoryPanelIndexOf(store.HistoryPosition()))
+        let project = addProject store "Original"
+        store.RenameEntity(project.Id, EntityKind.Project, "A")
+        store.RenameEntity(project.Id, EntityKind.Project, "B")
+        let saved = store.HistoryPosition()
+        let savedIndex = store.HistoryPanelIndexOf(saved)
+        Assert.True(savedIndex >= 2)
+
+        store.Undo()
+        Assert.Equal(savedIndex, store.HistoryPanelIndexOf(saved))
+        Assert.Equal(savedIndex - 1, store.HistoryPanelIndexOf(store.HistoryPosition()))
+        store.RenameEntity(project.Id, EntityKind.Project, "C")
+        Assert.Equal(-1, store.HistoryPanelIndexOf(saved))

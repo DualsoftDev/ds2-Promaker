@@ -150,6 +150,8 @@ public partial class EditorCanvas : UserControl
         bool canStartConnect = VM?.ConnectSelectedNodesCommand.CanExecute(null) == true;
         ConnectMenuItem.Visibility = hasNodeSelection ? Visibility.Visible : Visibility.Collapsed;
         ConnectMenuItem.IsEnabled = canStartConnect;
+        SelectAllArrowsMenuItem.Visibility = (ActiveCanvasState?.CanvasArrows.Count ?? 0) > 0
+            ? Visibility.Visible : Visibility.Collapsed;
         CopyMenuItem.Visibility = hasNodeSelection ? Visibility.Visible : Visibility.Collapsed;
         CopyMenuItem.IsEnabled = VM?.CopySelectedCommand.CanExecute(null) == true;
         DeleteMenuItem.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;

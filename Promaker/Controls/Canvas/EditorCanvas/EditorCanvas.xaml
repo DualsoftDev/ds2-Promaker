@@ -38,6 +38,7 @@
                           Command="{Binding AddReferenceCallCommand}"/>
                 <Separator x:Name="SepAfterAdd"/>
                 <MenuItem x:Name="ConnectMenuItem" Header="화살표 연결" Click="StartConnect_Click"/>
+                <MenuItem x:Name="SelectAllArrowsMenuItem" Header="화살표 전체 선택" Click="SelectAllArrows_Click"/>
                 <Separator x:Name="SepAfterConnect"/>
                 <MenuItem x:Name="CopyMenuItem" Header="복사" Command="{Binding CopySelectedCommand}"/>
                 <MenuItem x:Name="PasteMenuItem" Header="붙여넣기" Command="{Binding PasteCopiedCommand}"/>

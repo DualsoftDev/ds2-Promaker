@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Ds2.Core;
 using Ds2.Core.Store;
@@ -113,12 +114,17 @@ public partial class MainViewModel
         foreach (var label in redoList)
             HistoryItems.Add(new HistoryPanelItem(label, isRedo: true));
         CurrentHistoryIndex = undoList.Count;
+        RefreshHistorySavePoint();
         RefreshEditorCommandStates();
     }
 }
 
-public sealed class HistoryPanelItem(string label, bool isRedo)
+public sealed partial class HistoryPanelItem(string label, bool isRedo) : ObservableObject
 {
     public string Label  { get; } = label;
     public bool   IsRedo { get; } = isRedo;
+
+    /// <summary>마지막으로 저장한(또는 연) 파일과 같은 상태인 항목 — 💾 표시(#255).</summary>
+    [ObservableProperty]
+    private bool _isSavePoint;
 }

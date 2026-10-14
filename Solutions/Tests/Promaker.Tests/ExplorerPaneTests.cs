@@ -171,6 +171,45 @@ public sealed class ExplorerPaneTests
         });
     }
 
+    /// <summary>검색 중 전체 접기 뒤 하나를 선택해도 접힌 채로 있어야 한다(#251) — 예전엔 선택할 때마다 검색 결과 동기화가
+    /// 자식 있는 결과 노드를 전부 다시 펼쳤다.</summary>
+    [Fact]
+    public void Selecting_after_collapse_all_keeps_search_results_collapsed()
+    {
+        StaTestRunner.Run(() =>
+        {
+            var vm = new MainViewModel();
+            vm.NewProjectCommand.Execute(null);
+
+            var store = GetStore(vm);
+            var projectId = Queries.allProjects(store).Head.Id;
+            var systemId = Queries.activeSystemsOf(projectId, store).Head.Id;
+            var flowId = Queries.flowsOf(systemId, store).Head.Id;
+            var workId = store.AddWork("CollapseWork", flowId);
+            store.AddCallsWithDevice(projectId, workId, ["Dev.CollapseCall"], true, null);
+            Assert.True(StaTestRunner.WaitUntil(1000, () => Flatten(vm.ControlTreeRoots).Any(n => n.Id == workId)));
+
+            var host = CreateHost(vm, out var pane);
+            try
+            {
+                GetNamed<TextBox>(pane, "SearchBox").Text = "Collapse";
+                Assert.True(StaTestRunner.WaitUntil(1000, () => Flatten(pane.FilteredControlTreeRoots).Any(n => n.Id == workId)));
+
+                TestReflection.Invoke(pane, "CollapseAll_Click", null, new RoutedEventArgs());
+                var work = Flatten(pane.FilteredControlTreeRoots).First(n => n.Id == workId);
+                TestReflection.Invoke(pane, "SelectNodeFromTreeAndSyncSearch", work, false, false);
+                StaTestRunner.PumpPendingUi();
+
+                Assert.True(Flatten(pane.FilteredControlTreeRoots).First(n => n.Id == workId).IsTreeSelected);
+                Assert.All(Flatten(pane.FilteredControlTreeRoots), n => Assert.False(n.IsExpanded));
+            }
+            finally
+            {
+                host.Close();
+            }
+        });
+    }
+
     [Fact]
     public void Device_toggle_and_filtered_device_selection_open_parent_canvas()
     {

@@ -33,7 +33,7 @@ module internal PanelUserTagOps =
 type DsStorePanelUserTagExtensions =
 
     /// 모든 UserTag 편집이 같은 길을 간다 — System 존재 확인 → Undo 트랜잭션 → 변경 추적 → 이벤트.
-    /// `changed` 가 false 를 돌려주면(실제 변경 없음) 이벤트·히스토리 항목을 만들지 않는다.
+    /// `changed` 는 이벤트 발행만 정한다 — 트랜잭션(Undo 항목)은 이미 열린 뒤라, 바뀔 것이 없으면 호출 전에 걸러야 한다.
     static member private Mutate
         (store: DsStore, systemId: Guid, op: string, label: string,
          mutate: DsSystem -> 'T, changed: 'T -> bool) : 'T =
@@ -65,24 +65,38 @@ type DsStorePanelUserTagExtensions =
                 props.UserTags.Count - 1),
             (fun _ -> true))
 
+    /// 반환 = 실제로 바뀌었는지. 값이 그대로면(편집 창에서 아무것도 안 바꾸고 확인) 트랜잭션·Undo 항목·이벤트를 만들지 않는다 —
+    /// 예전엔 값이 같아도 History 에 "사용자 태그 편집" 이 쌓였다(#230).
     [<Extension>]
     static member UpdateUserTag
         (store: DsStore, systemId: Guid, index: int,
          name: string, logLevel: string, tagAddress: string, valueType: string,
          matchOp: string, matchValue: string) : bool =
-        DsStorePanelUserTagExtensions.Mutate(
+        let formatted = UserTagHelpers.format (UserTagStore.buildTag name logLevel tagAddress valueType matchOp matchValue)
+        let willChange =
+            match (StoreLog.requireSystem(store, systemId, "UpdateUserTag")).GetLoggingProperties() with
+            | Some p -> index >= 0 && index < p.UserTags.Count && p.UserTags.[index] <> formatted
+            | None -> false
+        willChange
+        && DsStorePanelUserTagExtensions.Mutate(
             store, systemId, "UpdateUserTag", "사용자 태그 편집",
             (fun sys ->
                 match sys.GetLoggingProperties() with
                 | Some p when index >= 0 && index < p.UserTags.Count ->
-                    p.UserTags.[index] <- UserTagHelpers.format (UserTagStore.buildTag name logLevel tagAddress valueType matchOp matchValue)
+                    p.UserTags.[index] <- formatted
                     true
                 | _ -> false),
             id)
 
+    /// 반환 = 지웠는지. 없는 인덱스면 트랜잭션·Undo 항목을 만들지 않는다.
     [<Extension>]
     static member RemoveUserTag(store: DsStore, systemId: Guid, index: int) : bool =
-        DsStorePanelUserTagExtensions.Mutate(
+        let exists =
+            match (StoreLog.requireSystem(store, systemId, "RemoveUserTag")).GetLoggingProperties() with
+            | Some p -> index >= 0 && index < p.UserTags.Count
+            | None -> false
+        exists
+        && DsStorePanelUserTagExtensions.Mutate(
             store, systemId, "RemoveUserTag", "사용자 태그 삭제",
             (fun sys ->
                 match sys.GetLoggingProperties() with

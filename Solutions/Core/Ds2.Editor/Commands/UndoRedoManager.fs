@@ -86,6 +86,21 @@ type UndoRedoManager(maxSize: int, maxSnapshotBytes: int64) =
         | first -> box first.Value
     member _.RedoLabels = redoStack |> Seq.map (fun t -> t.Label) |> Seq.toList
 
+    /// History 패널에서 position(CurrentPosition 으로 얻은 값)이 몇 번째 항목인지 — 0 = "(초기 상태)",
+    /// 1..undo 개수 = undo 이력(오래된 것부터), 그 뒤 = redo 이력. 이력에서 사라진 위치면 -1
+    /// (상한으로 버려졌거나, 되돌린 뒤 새로 편집해 redo 가 지워진 경우). 저장 지점 표시(#255)에 쓴다.
+    member _.PanelIndexOf(position: obj) : int =
+        let isPosition (tx: UndoTransaction) = obj.ReferenceEquals(box tx, position)
+        if isNull position then -1
+        elif obj.ReferenceEquals(position, emptyPosition) then 0
+        else
+            match undoStack |> Seq.tryFindIndex isPosition with
+            | Some k -> undoStack.Count - k
+            | None ->
+                match redoStack |> Seq.tryFindIndex isPosition with
+                | Some j -> undoStack.Count + 1 + j
+                | None -> -1
+
     /// 현재 undo/redo 이력이 붙들고 있는 스냅샷 크기 합(바이트 근사치). 진단·테스트용.
     member _.ApproxSnapshotBytes = undoBytes + redoBytes
 

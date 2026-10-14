@@ -76,6 +76,54 @@ public sealed class EditorWiringRegressionTests
         });
     }
 
+    /// <summary>복사한 Call 을 Flow 에 붙이면 Work 를 고르라고 알려야 한다(#248) — 예전엔 경고 없이 0개가 붙었고,
+    /// System 에 붙일 때는 Call 인데도 "Flow 를 선택하세요" 가 떴다.</summary>
+    [Fact]
+    public void Pasting_copied_calls_onto_a_flow_asks_for_a_work()
+    {
+        StaTestRunner.Run(() =>
+        {
+            var (vm, store, dialogs, projectId, _, flowId) = NewProject();
+            var workId = store.AddWork("W", flowId);
+            store.AddCallsWithDevice(projectId, workId, new[] { "D.A1" }, true, null);
+            var callId = Queries.callsOf(workId, store).Single().Id;
+
+            vm.Selection.SelectNodeFromCanvas(new EntityNode(callId, EntityKind.Call, "D.A1"), ctrlPressed: false, shiftPressed: false);
+            vm.CopySelectedCommand.Execute(null);
+            vm.SelectedNode = new EntityNode(flowId, EntityKind.Flow, "F");
+            vm.PasteCopiedCommand.Execute(null);
+
+            Assert.Contains(dialogs.Warnings, w => w.StartsWith("Work "));
+            Assert.Single(Queries.callsOf(workId, store));
+        });
+    }
+
+    /// <summary>캔버스 화살표를 한 번에 고를 수 있어야 한다(#257). 노드 선택은 비워서 이어서 누른 Delete 가 화살표만 지운다.</summary>
+    [Fact]
+    public void Selecting_all_canvas_arrows_selects_every_arrow_and_delete_removes_only_arrows()
+    {
+        StaTestRunner.Run(() =>
+        {
+            var (vm, store, _, _, _, flowId) = NewProject();
+            var work1Id = store.AddWork("W1", flowId);
+            var work2Id = store.AddWork("W2", flowId);
+            var work3Id = store.AddWork("W3", flowId);
+            store.ConnectSelectionInOrder(new[] { work1Id, work2Id, work3Id }, ArrowType.Start);
+            StaTestRunner.PumpPendingUi();
+            foreach (var a in store.ArrowWorks.Values.Where(a => vm.Canvas.CanvasArrows.All(x => x.Id != a.Id)))
+                vm.Canvas.CanvasArrows.Add(new ArrowNode(a.Id, a.SourceId, a.TargetId, a.ArrowType));
+            vm.Selection.SelectNodeFromCanvas(new EntityNode(work1Id, EntityKind.Work, "W1"), ctrlPressed: false, shiftPressed: false);
+
+            Assert.Equal(2, vm.Selection.SelectAllCanvasArrows());
+
+            Assert.Empty(vm.Selection.OrderedNodeSelection);
+            Assert.All(vm.Canvas.CanvasArrows, a => Assert.True(a.IsSelected));
+            vm.DeleteSelectedCommand.Execute(null);
+            Assert.Empty(store.ArrowWorks);
+            Assert.True(store.Works.ContainsKey(work1Id));
+        });
+    }
+
     /// <summary>Reference 가 걸린 Work 를 다른 Flow 로 옮기면 막고 이유를 알려야 한다 — 예전엔 원본이 옮겨지고 Reference 가
     /// 경고 없이 지워졌다.</summary>
     [Fact]

@@ -60,9 +60,17 @@ public partial class PropertyPanelState
         var dialog = new UserTagEditDialog(existingNames, item);
         if (!ShowOwnedDialog(dialog)) return;
 
-        if (!_host.TryAction(
-                () => Store.UpdateUserTag(systemNode.Id, item.Index, dialog.TagName, dialog.LogLevel, dialog.TagAddress, dialog.ValueType, dialog.MatchOp, dialog.MatchValue)))
+        if (!_host.TryFunc(
+                () => Store.UpdateUserTag(systemNode.Id, item.Index, dialog.TagName, dialog.LogLevel, dialog.TagAddress, dialog.ValueType, dialog.MatchOp, dialog.MatchValue),
+                out var changed,
+                fallback: false))
             return;
+
+        if (!changed)
+        {
+            _host.SetStatusText($"사용자 태그 '{dialog.TagName}' 변경 사항 없음.");
+            return;
+        }
 
         RefreshUserTagsPanel(systemNode.Id);
         _host.SetStatusText($"사용자 태그 '{dialog.TagName}' 수정됨.");

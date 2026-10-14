@@ -654,3 +654,28 @@ module ApiDefCreateRegressionTests =
         Assert.Equal(Some work.Id, apiDef.TxGuid)
         Assert.Equal(Some rx.Id, apiDef.RxGuid)
         Assert.Equal(Some "전진", apiDef.Description)
+
+
+/// 붙여넣기 대상 규칙(#248) — 종류마다 붙을 수 있는 대상이 다르고, 안 되면 골라야 할 종류를 알려 준다.
+/// 예전엔 Call 에도 "Flow 를 선택하세요" 가 떴고, Call → Flow 는 경고 없이 0개, Work → Project 는 원래 자리에 붙었다.
+module PasteTargetRequirementTests =
+
+    [<Fact>]
+    let ``each copied kind names the parent it needs when the target is wrong`` () =
+        let store = createStore ()
+        let project, system, flow, work = setupBasicHierarchy store
+        store.AddCallsWithDevice(project.Id, work.Id, [ "D.A1" ], true, None)
+        let call = Queries.callsOf work.Id store |> List.head
+        let requirement copied targetKind targetId = store.PasteTargetRequirement(copied, targetKind, targetId)
+
+        Assert.Equal("Work", requirement EntityKind.Call EntityKind.Flow flow.Id)
+        Assert.Equal("Work", requirement EntityKind.Call EntityKind.System system.Id)
+        Assert.Null(requirement EntityKind.Call EntityKind.Work work.Id)
+        Assert.Null(requirement EntityKind.Call EntityKind.Call call.Id)
+
+        Assert.Equal("Flow", requirement EntityKind.Work EntityKind.System system.Id)
+        Assert.Equal("Flow", requirement EntityKind.Work EntityKind.Project project.Id)
+        Assert.Null(requirement EntityKind.Work EntityKind.Work work.Id)
+
+        Assert.Equal("System", requirement EntityKind.Flow EntityKind.Project project.Id)
+        Assert.Null(requirement EntityKind.Flow EntityKind.Flow flow.Id)

@@ -149,6 +149,37 @@ public sealed class DirtyTrackingTests
         });
     }
 
+    /// <summary>History 패널은 마지막 저장 지점에 💾 를 표시한다(#255). 되돌려도 그 항목(취소선)에 남고, 파일이 없는
+    /// 새 프로젝트에는 되돌아갈 저장 지점이 없으니 표시하지 않는다.</summary>
+    [Fact]
+    public void History_panel_marks_the_last_saved_point()
+    {
+        StaTestRunner.Run(() =>
+        {
+            var (vm, store, flowId) = NewProject();
+            store.AddWork("W1", flowId);
+            Assert.DoesNotContain(vm.HistoryItems, i => i.IsSavePoint);
+
+            store.AddWork("W2", flowId);
+            var path = TempFile(".sdf");
+            try
+            {
+                Assert.True((bool)TestReflection.Invoke(vm, "SaveToPath", path)!);
+                var savedIndex = vm.HistoryItems.Count - 1;
+                Assert.True(vm.HistoryItems[savedIndex].IsSavePoint);
+
+                store.Undo();
+                Assert.True(vm.HistoryItems[savedIndex].IsRedo);
+                Assert.True(vm.HistoryItems[savedIndex].IsSavePoint);
+                Assert.Single(vm.HistoryItems, i => i.IsSavePoint);
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
+        });
+    }
+
     /// <summary>시뮬이 도는 중의 파일 열기(드롭·최근 파일·외부 변경 재로드)는 시뮬 종료를 확인받아야 한다 — 예전엔 가드 없이
     /// store 를 갈아 끼워, 엔진 스레드가 교체 중인 사전을 읽다 프로세스가 죽을 수 있었다.</summary>
     [Fact]

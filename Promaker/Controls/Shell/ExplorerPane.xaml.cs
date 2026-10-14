@@ -731,6 +731,8 @@ public partial class ExplorerPane : UserControl
         SyncFilteredNodes(FilteredDeviceTreeRoots, deviceIndex);
     }
 
+    // 선택·경고·시뮬 상태만 원본에서 옮긴다. 펼침은 검색어가 바뀔 때(CloneFilteredNode) 정하고 이후엔 사용자 조작을 따른다 —
+    // 예전엔 여기서 자식 있는 결과를 매번 다시 펼쳐, 검색 중 전체 접기 뒤 하나만 선택해도 전부 펼쳐졌다(#251).
     private static void SyncFilteredNodes(
         IEnumerable<EntityNode> filteredNodes,
         IReadOnlyDictionary<string, EntityNode> sourceIndex)
@@ -741,7 +743,6 @@ public partial class ExplorerPane : UserControl
             {
                 filteredNode.IsTreeSelected = sourceNode.IsTreeSelected;
                 filteredNode.SelectionOrder = sourceNode.SelectionOrder;
-                filteredNode.IsExpanded = filteredNode.Children.Count > 0 || sourceNode.IsExpanded;
                 filteredNode.IsWarning = sourceNode.IsWarning;
                 filteredNode.SimState = sourceNode.SimState;
                 filteredNode.SimTokenDisplay = sourceNode.SimTokenDisplay;

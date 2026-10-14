@@ -11,19 +11,39 @@
                  MouseDoubleClick="HistoryListBox_MouseDoubleClick">
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <TextBlock Text="{Binding Label}">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock">
-                                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsRedo}" Value="True">
-                                        <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
-                                        <Setter Property="TextDecorations" Value="Strikethrough"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="18"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <!-- 마지막 저장 지점 (#255) -->
+                        <TextBlock Grid.Column="0" Text="💾" FontFamily="Segoe UI Emoji" FontSize="11"
+                                   VerticalAlignment="Center" ToolTip="마지막 저장 지점">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Hidden"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsSavePoint}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock Grid.Column="1" Text="{Binding Label}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsRedo}" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}"/>
+                                            <Setter Property="TextDecorations" Value="Strikethrough"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>

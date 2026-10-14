@@ -281,6 +281,11 @@ type DsStoreAuthoringExtensions =
     static member HistoryPosition(store: DsStore) : obj =
         (StoreEditorState.get store).UndoManager.CurrentPosition
 
+    /// History 패널에서 position(HistoryPosition 값)이 몇 번째 항목인지. 0 = 초기 상태, 이력에서 사라졌으면 -1.
+    [<Extension>]
+    static member HistoryPanelIndexOf(store: DsStore, position: obj) : int =
+        (StoreEditorState.get store).UndoManager.PanelIndexOf position
+
     [<Extension>]
     static member EmitAndHistory(store: DsStore, evt: EditorEvent) =
         StoreAuthoring.emitAndHistory store evt

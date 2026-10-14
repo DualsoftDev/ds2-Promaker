@@ -140,6 +140,23 @@ type DsStorePasteExtensions =
                         PasteResult.Ok pastedIds
             | None -> PasteResult.Ok []
 
+    /// 복사한 종류를 이 대상에 붙일 수 있는지. 붙일 수 있으면 null, 없으면 골라야 할 대상 종류 이름(경고 문구용).
+    ///   Flow → System 이나 그 아래 항목, Work → Flow 나 그 아래 항목, Call → Work 나 그 안의 Call.
+    /// 예전엔 Work·Call 을 System 에 붙일 때만 "Flow 를 선택하세요" 를 띄웠고(Call 에도 Flow 로 안내), 다른 잘못된 대상은
+    /// 경고 없이 0개를 붙이거나(Call → Flow) 원래 자리에 붙였다(Work → Project) (#248).
+    [<Extension>]
+    static member PasteTargetRequirement
+        (store: DsStore, copiedEntityKind: EntityKind, targetEntityKind: EntityKind, targetEntityId: Guid) : string =
+        let requiredKind =
+            match copiedEntityKind with
+            | EntityKind.Flow -> Some EntityKind.System
+            | EntityKind.Work -> Some EntityKind.Flow
+            | EntityKind.Call -> Some EntityKind.Work
+            | _ -> None
+        match requiredKind with
+        | Some kind when (StoreHierarchyQueries.resolveTarget store kind targetEntityKind targetEntityId).IsNone -> string kind
+        | _ -> null
+
     [<Extension>]
     static member ValidateCopySelection(store: DsStore, keys: seq<SelectionKey>) : CopyValidationResult =
         let filtered =

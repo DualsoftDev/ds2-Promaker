@@ -101,6 +101,13 @@ public partial class EditorCanvas
         return true;
     }
 
+    private void SelectAllArrows_Click(object sender, RoutedEventArgs e)
+    {
+        if (VM is null) return;
+        var count = VM.Selection.SelectAllCanvasArrows();
+        VM.StatusText = $"화살표 {count}개를 선택했습니다.";
+    }
+
     private void CompleteConnect(Guid targetId)
     {
         if (_connectSource is not { } sourceId || VM is null || ActiveCanvasState!.ActiveTab is null) return;

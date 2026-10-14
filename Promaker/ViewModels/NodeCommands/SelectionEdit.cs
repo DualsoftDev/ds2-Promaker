@@ -354,10 +354,11 @@ public partial class MainViewModel
         }
 
         var batchType = _clipboardSelection[0].EntityKind;
-        if (target.Value.EntityType == EntityKind.System
-            && (batchType == EntityKind.Work || batchType == EntityKind.Call))
+        // 붙일 수 없는 대상이면 무엇을 골라야 하는지 알린다 — 종류별 규칙은 F#(PasteTargetRequirement).
+        var requiredTarget = _store.PasteTargetRequirement(batchType, target.Value.EntityType, target.Value.EntityId);
+        if (requiredTarget is not null)
         {
-            _dialogService.ShowWarning("붙여넣기 대상으로 Flow를 선택하세요.");
+            _dialogService.ShowWarning($"{requiredTarget} 또는 그 아래 항목을 붙여넣기 대상으로 선택하세요.");
             return;
         }
 

@@ -215,6 +215,25 @@ public class SelectionState
         ApplyArrowSelectionVisuals();
     }
 
+    /// <summary>활성 캔버스의 화살표를 모두 선택한다(#257). 노드 선택은 비워서 삭제·종류 변경·방향 전환이 화살표에만 적용된다.
+    /// 반환 = 선택한 화살표 수.</summary>
+    public int SelectAllCanvasArrows()
+    {
+        _orderedNodeSelection.Clear();
+        _selectionAnchor = null;
+        ApplyNodeSelectionVisuals();
+
+        _orderedArrowSelection.Clear();
+        foreach (var arrow in _host.CanvasArrows)
+        {
+            if (!_orderedArrowSelection.Contains(arrow.Id))
+                _orderedArrowSelection.Add(arrow.Id);
+        }
+
+        ApplyArrowSelectionVisuals();
+        return _orderedArrowSelection.Count;
+    }
+
     public void RestoreSelection(List<SelectionKey> selectedKeys, List<Guid> selectedArrowIds)
     {
         _orderedNodeSelection.Clear();

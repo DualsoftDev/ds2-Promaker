@@ -22,6 +22,7 @@ public partial class MainViewModel
         _savedHistoryPosition = _store.HistoryPosition();
         _hasUnsavedNonHistoryChanges = false;
         IsDirty = false;
+        RefreshHistorySavePoint();
     }
 
     /// <summary>편집 이력에 남지 않는 모델 변경을 표시한다.</summary>
@@ -29,6 +30,7 @@ public partial class MainViewModel
     {
         _hasUnsavedNonHistoryChanges = true;
         IsDirty = true;
+        RefreshHistorySavePoint();
     }
 
     /// <summary>열기 직후 이력을 비운 시점을 저장 기준으로 다시 잡는다 — 이력 밖 변경 표시(새 문서)는 유지한다.</summary>
@@ -36,6 +38,18 @@ public partial class MainViewModel
     {
         _savedHistoryPosition = _store.HistoryPosition();
         RecomputeDirtyFromHistory();
+        RefreshHistorySavePoint();
+    }
+
+    /// <summary>History 패널의 저장 지점 표시(💾, #255)를 다시 계산한다. 파일이 없거나(새 프로젝트·CSV·샘플 사본)
+    /// 이력 밖 변경이 남아 있으면 되돌아갈 저장 지점이 없으므로 표시하지 않는다.</summary>
+    private void RefreshHistorySavePoint()
+    {
+        var savedIndex = _currentFilePath is null || _hasUnsavedNonHistoryChanges
+            ? -1
+            : _store.HistoryPanelIndexOf(_savedHistoryPosition);
+        for (var i = 0; i < HistoryItems.Count; i++)
+            HistoryItems[i].IsSavePoint = i == savedIndex;
     }
 
     /// <summary>편집 이력이 바뀔 때마다 다시 계산.</summary>
