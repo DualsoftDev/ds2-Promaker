@@ -11,13 +11,15 @@ module CsvImportPlanTests =
     let private entry flow work device system api : CsvEntry =
         { FlowName = flow; WorkName = work; DeviceName = device; DeviceAlias = device
           SystemName = system; ApiName = api; IsSyntheticApi = false
-          InName = None; InAddress = None; OutName = None; OutAddress = None; SourceLines = [] }
+          InName = None; InAddress = None; OutName = None; OutAddress = None; SourceLines = []
+          ActiveSystemName = None; ReferenceOf = None }
 
     let private entryWithIO flow work device system api inName inAddr outName outAddr : CsvEntry =
         { FlowName = flow; WorkName = work; DeviceName = device; DeviceAlias = device
           SystemName = system; ApiName = api; IsSyntheticApi = false
           InName = Some inName; InAddress = Some inAddr
-          OutName = Some outName; OutAddress = Some outAddr; SourceLines = [] }
+          OutName = Some outName; OutAddress = Some outAddr; SourceLines = []
+          ActiveSystemName = None; ReferenceOf = None }
 
     [<Fact>]
     let ``buildSystemImportPlan does not mutate store before apply`` () =

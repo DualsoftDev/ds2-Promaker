@@ -16,6 +16,8 @@ namespace Promaker.Dialogs;
 
 public class CsvRowViewModel
 {
+    /// <summary>표준 11열의 ActiveSystem — 비면 대화상자에서 입력한 System 으로 간다(#250).</summary>
+    public string ActiveSystemName { get; set; } = "";
     public string FlowName { get; set; } = "";
     public string WorkName { get; set; } = "";
     public string DeviceName { get; set; } = "";
@@ -25,6 +27,8 @@ public class CsvRowViewModel
     public string InAddress { get; set; } = "";
     public string OutName { get; set; } = "";
     public string OutAddress { get; set; } = "";
+    /// <summary>표준 11열의 ReferenceOf — 원본 Call 이 있는 "Flow.Work". 채워진 행은 Reference Call 이 된다(#254).</summary>
+    public string ReferenceOf { get; set; } = "";
 }
 
 public class BasicCsvRowViewModel
@@ -264,8 +268,12 @@ RH,RH작업,RH클램프1.전진=800MS>RH슬라이드.전진=1S>RH런너1.체결=
             .AppendLine($"✓ Flow: {preview.FlowNames.Length}개")
             .AppendLine($"✓ Work: {preview.WorkNames.Length}개")
             .AppendLine($"✓ Call: {preview.CallNames.Length}개")
-            .AppendLine($"✓ Passive Device System: {preview.PassiveSystemNames.Length}개")
-            .AppendLine();
+            .AppendLine($"✓ Passive Device System: {preview.PassiveSystemNames.Length}개");
+        if (preview.ActiveSystemNames.Length > 0)
+            sb.AppendLine($"✓ Active System: {preview.ActiveSystemNames.Length}개 ({string.Join(", ", preview.ActiveSystemNames)})");
+        if (preview.ReferenceCallCount > 0)
+            sb.AppendLine($"✓ Reference Call: {preview.ReferenceCallCount}개");
+        sb.AppendLine();
 
         AppendSample(sb, "Flow 샘플", preview.FlowNames, 5);
         AppendSample(sb, "Work 샘플", preview.WorkNames, 5);
@@ -316,7 +324,9 @@ RH,RH작업,RH클램프1.전진=800MS>RH슬라이드.전진=1S>RH런너1.체결=
             InName = OptionText(entry.InName),
             InAddress = OptionText(entry.InAddress),
             OutName = OptionText(entry.OutName),
-            OutAddress = OptionText(entry.OutAddress)
+            OutAddress = OptionText(entry.OutAddress),
+            ActiveSystemName = OptionText(entry.ActiveSystemName),
+            ReferenceOf = OptionText(entry.ReferenceOf)
         };
 
     private void SetSourceDisplay(string displayName, string description)
@@ -466,7 +476,7 @@ RH,RH작업,RH클램프1.전진=800MS>RH슬라이드.전진=1S>RH런너1.체결=
     private void SetFormatBadgeIdle()
     {
         _detectedFormat = CsvFormat.Unknown;
-        FormatBadgeText.Text = "CSV 내용을 입력하면 형식(기본 3열 / 표준 9열 / 표준 8열)을 자동으로 인식합니다.";
+        FormatBadgeText.Text = "CSV 내용을 입력하면 형식(기본 3열 / 표준 8열 / 표준 9열 / 표준 11열)을 자동으로 인식합니다.";
         FormatBadge.SetResourceReference(Border.BackgroundProperty, "TertiaryBackgroundBrush");
         FormatBadgeText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryTextBrush");
         UpdateFormatDependentUi();
@@ -741,8 +751,7 @@ RH,RH작업,RH클램프1.전진=800MS>RH슬라이드.전진=1S>RH런너1.체결=
 
     private void Ok_Click(object sender, RoutedEventArgs e)
     {
-        if (!ValidateRequired(this, ProjectNameBox, "Project") ||
-            !ValidateRequired(this, SystemNameBox, "Active System"))
+        if (!ValidateRequired(this, ProjectNameBox, "Project"))
             return;
 
         if (!TryLoadDocument())
@@ -753,6 +762,15 @@ RH,RH작업,RH클램프1.전진=800MS>RH슬라이드.전진=1S>RH런너1.체결=
             return;
         }
 
+        // 모든 행에 ActiveSystem 이 적혀 있으면 입력한 System 이름은 쓰이지 않는다(#250).
+        if (!EveryRowNamesActiveSystem() && !ValidateRequired(this, SystemNameBox, "Active System"))
+            return;
+
         DialogResult = true;
     }
+
+    private bool EveryRowNamesActiveSystem() =>
+        _document is { } document
+        && document.Entries.Length > 0
+        && document.Entries.All(entry => !string.IsNullOrWhiteSpace(OptionText(entry.ActiveSystemName)));
 }
