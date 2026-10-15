@@ -21,6 +21,13 @@ internal sealed class TestDialogService : IDialogService
 
     public CrossFlowDeviceMode? CrossFlowMode { get; init; }
 
+    /// <summary>파일 열기 대화상자가 돌려줄 경로(null = 취소).</summary>
+    public string? OpenFilePath { get; init; }
+
+    /// <summary>Device CSV 의 같은 이름 Api 질문에 대한 답(null = 취소). 받은 질문은 DeviceApiConflictPrompts 에 남는다.</summary>
+    public DeviceApiConflictMode? DeviceApiConflictChoice { get; init; }
+    public List<IReadOnlyList<string>> DeviceApiConflictPrompts { get; } = [];
+
     public string? PromptName(string title, string defaultName) => defaultName;
     public bool Confirm(string message, string title) => true;
     public void ShowWarning(string message) => Warnings.Add(message);
@@ -32,11 +39,16 @@ internal sealed class TestDialogService : IDialogService
     public void ShowError(string message) => Warnings.Add(message);
     public void ShowInfo(string message) { }
     public MessageBoxResult AskSaveChanges() => MessageBoxResult.No;
-    public string? ShowOpenFileDialog(string filter) => null;
+    public string? ShowOpenFileDialog(string filter) => OpenFilePath;
     public string? ShowSaveFileDialog(string filter, string? defaultFileName = null) => null;
     public T? ShowDialog<T>(Window dialog) where T : class => null;
     public bool? ShowDialog(Window dialog) => null;
     public CrossFlowDeviceMode? PromptCrossFlowDeviceMode(CrossFlowDeviceModePromptContext context) => CrossFlowMode;
+    public DeviceApiConflictMode? PromptDeviceApiConflict(IReadOnlyList<string> conflictNames)
+    {
+        DeviceApiConflictPrompts.Add(conflictNames);
+        return DeviceApiConflictChoice;
+    }
 }
 
 /// <summary>뷰모델의 비공개 멤버에 접근하는 테스트 도우미.</summary>

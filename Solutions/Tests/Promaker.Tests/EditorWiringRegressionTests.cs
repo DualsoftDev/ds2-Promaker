@@ -153,6 +153,46 @@ public sealed class EditorWiringRegressionTests
         });
     }
 
+    /// <summary>Device CSV 를 불러오면 같은 이름의 Api 만 물어보고, 고른 대로 새 이름으로 넣는다(#253).</summary>
+    [Fact]
+    public void Importing_a_device_csv_asks_about_existing_api_names_and_renames_them()
+    {
+        var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"devices-{Guid.NewGuid():N}.csv");
+        System.IO.File.WriteAllText(path, "Device,Api,ActionType,SensingType\nCyl,Adv,,\nCyl,Hold,Pulse,\n");
+        try
+        {
+            StaTestRunner.Run(() =>
+            {
+                var vm = new MainViewModel();
+                var dialogs = new TestDialogService
+                {
+                    OpenFilePath = path,
+                    DeviceApiConflictChoice = DeviceApiConflictMode.Rename
+                };
+                TestReflection.Set(vm, "_dialogService", dialogs);
+                vm.NewProjectCommand.Execute(null);
+                StaTestRunner.PumpPendingUi();
+                var store = TestReflection.Get<DsStore>(vm, "_store");
+                var projectId = Assert.Single(store.Projects.Keys);
+                store.ImportDeviceApis(projectId, new[]
+                {
+                    new DeviceApiSpec("Cyl", "Adv", ActionType.NewNormal(null), SensingType.NewNormal(null), "")
+                }, DeviceApiConflictMode.Skip);
+
+                vm.ImportDeviceCsvCommand.Execute(null);
+
+                Assert.Equal(new[] { "Cyl.Adv" }, Assert.Single(dialogs.DeviceApiConflictPrompts));
+                var device = Queries.passiveSystemsOf(projectId, store).Single(s => s.Name == "Cyl");
+                Assert.Equal(new[] { "Adv", "Adv_1", "Hold" },
+                    Queries.apiDefsOf(device.Id, store).Select(d => d.Name).OrderBy(n => n).ToArray());
+            });
+        }
+        finally
+        {
+            System.IO.File.Delete(path);
+        }
+    }
+
     /// <summary>Reference 가 걸린 Work 를 다른 Flow 로 옮기면 막고 이유를 알려야 한다 — 예전엔 원본이 옮겨지고 Reference 가
     /// 경고 없이 지워졌다.</summary>
     [Fact]

@@ -130,6 +130,7 @@
             <MenuItem Tag="AddCall" Header="Call 추가" Command="{Binding AddCallCommand}"/>
             <Separator Tag="SepAdd"/>
             <MenuItem Tag="ExportCsv" Header="CSV 내보내기..." Command="{Binding ExportCsvCommand}"/>
+            <MenuItem Tag="ImportDeviceCsv" Header="Device CSV 불러오기..." Command="{Binding ImportDeviceCsvCommand}"/>
             <Separator Tag="SepImport"/>
             <MenuItem Tag="Copy" Header="복사" Command="{Binding CopySelectedCommand}"/>
             <MenuItem Tag="Cut" Header="잘라내기" Command="{Binding CutSelectedCommand}"/>

@@ -35,6 +35,7 @@
     <Compile Include="Store\Log.fs" />
     <Compile Include="Store\Nodes\Remove.fs" />
     <Compile Include="Store\Nodes\Device.fs" />
+    <Compile Include="Store\Nodes\DeviceImport.fs" />
     <Compile Include="Store\Nodes\Nodes.fs" />
     <Compile Include="Store\Paste\Paste.DeviceOps.fs" />
     <Compile Include="Store\Paste\Paste.DirectOps.fs" />

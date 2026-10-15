@@ -16,6 +16,8 @@ module EntityKindRules =
         | "AddWork"       -> kind = Some EntityKind.Flow
         | "AddCall"       -> kind = Some EntityKind.Work
         | "ExportCsv"     -> hasProject && not isDeviceTree
+        // Device CSV 불러오기(#253) — Device·Api 선언을 기존 프로젝트에 더한다. Device 트리에서만.
+        | "ImportDeviceCsv" -> hasProject && isDeviceTree
         | "Copy"          -> kind = Some EntityKind.Flow || kind = Some EntityKind.Work || kind = Some EntityKind.Call
         | "Cut"           -> kind = Some EntityKind.Flow || kind = Some EntityKind.Work || kind = Some EntityKind.Call
         | "Paste"         -> kind = Some EntityKind.System || kind = Some EntityKind.Flow || kind = Some EntityKind.Work

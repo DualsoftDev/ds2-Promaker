@@ -172,5 +172,6 @@ public sealed class AddWorkTargetFlowTests
         public T? ShowDialog<T>(Window dialog) where T : class => null;
         public bool? ShowDialog(Window dialog) => false;
         public Ds2.Editor.CrossFlowDeviceMode? PromptCrossFlowDeviceMode(CrossFlowDeviceModePromptContext context) => null;
+        public Ds2.Editor.DeviceApiConflictMode? PromptDeviceApiConflict(System.Collections.Generic.IReadOnlyList<string> conflictNames) => null;
     }
 }
