@@ -7,7 +7,7 @@ using Ds2.Editor;
 namespace Promaker.Dialogs;
 
 /// <summary>
-/// IO·태그 확인용 IO 행 — 표시 + 매칭 강조용 IsUnmatched/HasError 만 변경 가능.
+/// IO·태그 확인용 IO 행. In/Out 이름·주소는 표에서 바로 고칠 수 있고(#212), 처음 값과 달라진 행(IsChanged)만 적용한다.
 /// IoQueryService.Generate 이 채워서 반환한다.
 /// </summary>
 public sealed class IoBatchRow : BatchRowBase
@@ -25,10 +25,10 @@ public sealed class IoBatchRow : BatchRowBase
         Work = work;
         Device = device;
         Api = api;
-        InAddress = inAddress;
-        InSymbol = inSymbol;
-        OutAddress = outAddress;
-        OutSymbol = outSymbol;
+        _inAddress = _originalInAddress = inAddress ?? "";
+        _inSymbol = _originalInSymbol = inSymbol ?? "";
+        _outAddress = _originalOutAddress = outAddress ?? "";
+        _outSymbol = _originalOutSymbol = outSymbol ?? "";
         OutDataType = outDataType;
         InDataType = inDataType;
     }
@@ -45,12 +45,30 @@ public sealed class IoBatchRow : BatchRowBase
     public string Device { get; }
     public string Api { get; }
 
-    public string InAddress   { get; }
-    public string InSymbol    { get; }
-    public string OutAddress  { get; }
-    public string OutSymbol   { get; }
+    // 읽어 온 값 — 고친 행만 골라 적용하는 기준.
+    private readonly string _originalInAddress, _originalInSymbol, _originalOutAddress, _originalOutSymbol;
+    private string _inAddress, _inSymbol, _outAddress, _outSymbol;
+
+    public string InAddress  { get => _inAddress;  set => SetEdited(ref _inAddress, value); }
+    public string InSymbol   { get => _inSymbol;   set => SetEdited(ref _inSymbol, value); }
+    public string OutAddress { get => _outAddress; set => SetEdited(ref _outAddress, value); }
+    public string OutSymbol  { get => _outSymbol;  set => SetEdited(ref _outSymbol, value); }
     public string OutDataType { get; }
     public string InDataType  { get; }
+
+    /// <summary>In/Out 이름·주소 중 하나라도 읽어 온 값과 다르다.</summary>
+    public bool IsChanged =>
+        _inAddress != _originalInAddress || _inSymbol != _originalInSymbol
+        || _outAddress != _originalOutAddress || _outSymbol != _originalOutSymbol;
+
+    /// <summary>Reference Call·매핑 없는 행은 고칠 대상(ApiCall)이 없다.</summary>
+    public bool IsEditable => CallId != Guid.Empty && ApiCallId != Guid.Empty;
+
+    private void SetEdited(ref string field, string? value, [System.Runtime.CompilerServices.CallerMemberName] string? propertyName = null)
+    {
+        if (SetField(ref field, value ?? "", propertyName))
+            OnPropertyChanged(nameof(IsChanged));
+    }
 }
 
 /// <summary>

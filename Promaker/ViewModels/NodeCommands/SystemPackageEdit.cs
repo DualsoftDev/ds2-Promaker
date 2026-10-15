@@ -117,6 +117,36 @@ public partial class MainViewModel
     /// true 를 즉시 반환하고 본 작업은 비동기 진행 (역직렬화=배경, 병합+리빌드=UI).
     /// 양쪽 다 없으면 false (호출부가 기존 "Clipboard is empty" 경로 유지).
     /// </summary>
+    /// <summary>이 창에서 일반 복사(Flow/Work/Call)·잘라내기를 한 시각과 그때의 OS 클립보드 변경 번호 —
+    /// 다른 창의 System 복사와 어느 쪽이 최근인지 가른다(#249).</summary>
+    private DateTime _internalCopiedAtUtc = DateTime.MinValue;
+    private uint _internalCopyClipboardSequence;
+
+    private void RememberInternalCopy()
+    {
+        _internalCopiedAtUtc = DateTime.UtcNow;
+        _internalCopyClipboardSequence = SystemPackageClipboard.CurrentSequence;
+    }
+
+    /// <summary>System 패키지가 이 창의 일반 복사보다 나중에 복사됐는지 — "가장 최근 복사가 이긴다"(#249).
+    /// 파일 채널(스풀) 기록 시각이 일반 복사보다 늦거나, 일반 복사 뒤로 OS 클립보드가 바뀌었고 지금 System 패키지를 담고 있으면 참.
+    /// 예전엔 붙여넣을 창에 일반 복사가 남아 있으면, 그 뒤 다른 창에서 System 을 복사해도 일반 복사분이 붙었다.</summary>
+    internal static bool SystemPackageIsNewer(
+        DateTime internalCopiedAtUtc, uint internalCopySequence,
+        DateTime? spoolWrittenAtUtc, uint currentClipboardSequence, bool clipboardHasPackage) =>
+        (spoolWrittenAtUtc is { } written && written > internalCopiedAtUtc)
+        || (currentClipboardSequence != internalCopySequence && clipboardHasPackage);
+
+    private bool IsSystemPackageNewerThanInternalCopy()
+    {
+        var sequence = SystemPackageClipboard.CurrentSequence;
+        return SystemPackageIsNewer(
+            _internalCopiedAtUtc, _internalCopyClipboardSequence,
+            SystemPackageSpool.TryReadMeta()?.WrittenAtUtc,
+            sequence,
+            sequence != _internalCopyClipboardSequence && SystemPackageClipboard.HasPackage());
+    }
+
     private bool TryPasteSystemPackage()
     {
         var meta = SystemPackageSpool.TryReadMeta();

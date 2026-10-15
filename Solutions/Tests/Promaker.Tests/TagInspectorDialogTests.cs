@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Controls;
 using Ds2.Core.Store;
+using Ds2.Editor;
 using Promaker.Dialogs;
 using Xunit;
 
@@ -130,6 +131,47 @@ public sealed class TagInspectorDialogTests
     /// 동일하게 동작하는지 확인 (통합 테스트). private 핸들러는 RoutedEvent 대신
     /// BatchDialogHelper 호출로 검증 — 핸들러가 호출하는 정확히 그 메서드.
     /// </summary>
+    /// <summary>IO 신호 탭에서 이름·주소를 고쳐 바로 적용할 수 있어야 한다(#212) — 4월 28일부터 읽기 전용이라 I/O 하나 고치려면
+    /// Properties 에서 Call 을 찾아가야 했다. 고친 행만 반영되고 Undo 한 번에 돌아온다.</summary>
+    [Fact]
+    public void Edited_io_rows_are_applied_to_the_model_as_one_undo_step()
+    {
+        StaTestRunner.Run(() =>
+        {
+            var store = new DsStore();
+            var projectId = store.AddProject("P");
+            var systemId = store.AddSystem("S", projectId, true);
+            var workId = store.AddWork("W", store.AddFlow("F", systemId));
+            store.AddCallsWithDevice(projectId, workId, new[] { "D.A1", "D.A2" }, true, null);
+            var dlg = new TagInspectorDialog(store);
+            try
+            {
+                var rows = (System.Collections.Generic.IList<IoBatchRow>)typeof(TagInspectorDialog)
+                    .GetField("_rows", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                    .GetValue(dlg)!;
+                var editable = rows.Where(r => r.IsEditable).ToList();
+                Assert.Equal(2, editable.Count);
+                var target = editable[0];
+                var untouched = editable[1];
+                var untouchedBefore = store.ApiCalls[untouched.ApiCallId].InTag;
+
+                target.InAddress = "%IX0.0.5";
+                Assert.True(target.IsChanged);
+                Assert.False(untouched.IsChanged);
+                Assert.True(dlg.ApplyIoEdits());
+
+                Assert.Equal("%IX0.0.5", store.ApiCalls[target.ApiCallId].InTag.Value.Address);
+                Assert.Equal(untouchedBefore, store.ApiCalls[untouched.ApiCallId].InTag);
+                store.Undo();
+                Assert.NotEqual("%IX0.0.5", store.ApiCalls[target.ApiCallId].InTag?.Value.Address);
+            }
+            finally
+            {
+                dlg.Close();
+            }
+        });
+    }
+
     [Fact]
     public void Dialog_row_checkbox_applies_state_to_all_selected_rows()
     {

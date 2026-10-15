@@ -457,7 +457,8 @@
                               AutoGenerateColumns="False"
                               CanUserAddRows="False"
                               CanUserDeleteRows="False"
-                              IsReadOnly="True"
+                              IsReadOnly="False"
+                              BeginningEdit="IoGrid_BeginningEdit"
                               PreviewKeyDown="IoGrid_PreviewKeyDown"
                               HeadersVisibility="None"
                               SelectionMode="Extended"
@@ -474,6 +475,10 @@
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding HasError}" Value="True">
                                         <Setter Property="Background" Value="#66E15B5B"/>
+                                    </DataTrigger>
+                                    <!-- 표에서 고쳤고 아직 적용 안 한 행 (#212) -->
+                                    <DataTrigger Binding="{Binding IsChanged}" Value="True">
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -503,12 +508,13 @@
                             <DataGridTextColumn Binding="{Binding Work}"   Width="140" IsReadOnly="True"/>
                             <DataGridTextColumn Binding="{Binding Device}" Width="140" IsReadOnly="True"/>
                             <DataGridTextColumn Binding="{Binding Api}"    Width="140" IsReadOnly="True"/>
-                            <DataGridTextColumn Binding="{Binding InSymbol}"    Width="*"   IsReadOnly="True"/>
+                            <!-- In/Out 이름·주소는 표에서 바로 고친다 (#212) — '변경 적용' 으로 반영 -->
+                            <DataGridTextColumn Binding="{Binding InSymbol, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"   Width="*"/>
                             <DataGridTextColumn Binding="{Binding InDataType}"  Width="80"  IsReadOnly="True"/>
-                            <DataGridTextColumn Binding="{Binding InAddress}"   Width="120" IsReadOnly="True"/>
-                            <DataGridTextColumn Binding="{Binding OutSymbol}"   Width="*"   IsReadOnly="True"/>
+                            <DataGridTextColumn Binding="{Binding InAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"  Width="120"/>
+                            <DataGridTextColumn Binding="{Binding OutSymbol, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"  Width="*"/>
                             <DataGridTextColumn Binding="{Binding OutDataType}" Width="80"  IsReadOnly="True"/>
-                            <DataGridTextColumn Binding="{Binding OutAddress}"  Width="120" IsReadOnly="True"/>
+                            <DataGridTextColumn Binding="{Binding OutAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="120"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>
@@ -605,7 +611,7 @@
                     CornerRadius="3"
                     Padding="16,8">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="💡 I/O 편집은 TAG Wizard 에서만 가능합니다. (메뉴: TAG Wizard → Step 3 → '패턴 적용' 버튼)"
+                    <TextBlock Text="💡 I/O 이름·주소는 표에서 바로 고친 뒤 '변경 적용' 을 누르세요. 패턴으로 한꺼번에 만들 때는 TAG Wizard 를 쓰세요."
                                VerticalAlignment="Center"
                                Foreground="{DynamicResource SecondaryTextBrush}"
                                FontSize="12"/>
@@ -643,11 +649,20 @@
                         Click="ExportDummyCsv_Click"
                         ToolTip="Dummy 신호 탭의 모든 행을 CSV 로 저장"/>
 
-                <Button Grid.Column="4"
-                        MinWidth="82"
-                        Style="{StaticResource DarkButton}"
-                        Content="닫기"
-                        IsCancel="True"/>
+                <StackPanel Grid.Column="4" Orientation="Horizontal">
+                    <Button x:Name="ApplyIoButton"
+                            MinWidth="120"
+                            Margin="0,0,8,0"
+                            Style="{StaticResource DarkButton}"
+                            Content="변경 적용"
+                            IsEnabled="False"
+                            Click="ApplyIo_Click"
+                            ToolTip="IO 신호 탭에서 고친 이름·주소를 모델에 반영 (Undo 한 번)"/>
+                    <Button MinWidth="82"
+                            Style="{StaticResource DarkButton}"
+                            Content="닫기"
+                            IsCancel="True"/>
+                </StackPanel>
             </Grid>
         </Grid>
     </Border>

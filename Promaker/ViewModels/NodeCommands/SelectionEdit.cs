@@ -199,6 +199,7 @@ public partial class MainViewModel
         _pasteCount = 0;
         foreach (var key in validated)
             _clipboardSelection.Add(key);
+        RememberInternalCopy();
 
         // Copy 는 cut 아님 — 이전 cut visual 이 남아있다면 clear
         Selection.ApplyCutPendingVisuals([]);
@@ -268,6 +269,7 @@ public partial class MainViewModel
         _pasteCount = 0;
         foreach (var key in validated)
             _clipboardSelection.Add(key);
+        RememberInternalCopy();
 
         // Cut visual: 클립보드 entry 들을 디밍/반투명 표시
         Selection.ApplyCutPendingVisuals(_clipboardSelection);
@@ -316,13 +318,16 @@ public partial class MainViewModel
         if (!GuardSimulationSemanticEdit("붙여넣기"))
             return;
 
-        if (_clipboardSelection.Count == 0)
+        // 내부 클립보드가 비었거나, 그 뒤에 다른 창에서 System 을 복사했으면 시스템 패키지를 붙인다(#249).
+        if (_clipboardSelection.Count == 0 || IsSystemPackageNewerThanInternalCopy())
         {
-            // 내부 클립보드가 비었으면 OS 클립보드의 시스템 패키지(다른 인스턴스 복사분) 시도
             if (TryPasteSystemPackage())
                 return;
-            StatusText = "Clipboard is empty.";
-            return;
+            if (_clipboardSelection.Count == 0)
+            {
+                StatusText = "Clipboard is empty.";
+                return;
+            }
         }
 
         // Cut clipboard: source 엔티티들이 그 동안 삭제되었는지 검증. 사라졌으면 자동 clear + 안내.

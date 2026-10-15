@@ -55,9 +55,12 @@
         <!-- DockPanel: 우측 Etc 를 먼저 배치해 폭이 모자라도 잘리지 않게 한다.
              Grid 만 쓰면 Auto 열이 오른쪽부터 화면 밖으로 밀려 유틸/설정/도움말이 통째로 사라졌다. -->
         <DockPanel LastChildFill="True">
-        <controls:MainToolbarEtcContent DockPanel.Dock="Right" DataContext="{Binding}"
+        <controls:MainToolbarEtcContent x:Name="EtcContent" DockPanel.Dock="Right" DataContext="{Binding}"
                                         IsCompact="{Binding IsCompact, ElementName=ThisControl}"
                                         Visibility="{Binding IsToolbarEtcVisible, Converter={StaticResource BoolToVis}}"/>
+        <!-- 접어도 폭이 모자라면 왼쪽 묶음들을 가로 스크롤로 닿게 한다 — 예전엔 오른쪽부터 화면 밖으로 잘려 누를 수 없었다(#260). -->
+        <ScrollViewer x:Name="RibbonScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                      Focusable="False">
         <Grid x:Name="RibbonGrid">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/> <!-- 0: File -->
@@ -451,6 +454,7 @@
             <controls:MainToolbarSimulationContent Grid.Column="8" DataContext="{Binding}"
                                                    Visibility="{Binding IsToolbarSimulationVisible, Converter={StaticResource BoolToVis}}"/>
         </Grid>
+        </ScrollViewer>
         </DockPanel>
     </Border>
 </UserControl>

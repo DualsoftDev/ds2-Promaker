@@ -131,6 +131,45 @@ public sealed class MainToolbarVisualTests
         });
     }
 
+    /// <summary>좁은 창에서도 툴바 버튼에 모두 닿아야 한다(#260). 넓으면 그대로, 좁으면 기타 묶음을 접고, 그래도 넘치는 부분은
+    /// 가로 스크롤로 닿는다. 예전엔 접는 판정이 기타 묶음 폭을 빼고 계산해 늦게 접혔고, 넘친 버튼은 잘려 누를 수 없었다.</summary>
+    [Fact]
+    public void Narrow_window_compacts_the_toolbar_and_scrolls_to_clipped_sections()
+    {
+        StaTestRunner.Run(() =>
+        {
+            var vm = new MainViewModel();
+            vm.NewProjectCommand.Execute(null);
+            var toolbar = new MainToolbar { DataContext = vm };
+            var host = new Window
+            {
+                Width = 1900, Height = 200, Content = toolbar,
+                ShowInTaskbar = false, WindowStyle = WindowStyle.None
+            };
+            host.Show();
+            try
+            {
+                host.UpdateLayout();
+                StaTestRunner.PumpPendingUi();
+                var scroll = FindRequiredDescendant<ScrollViewer>(toolbar, "RibbonScroll");
+                Assert.False(toolbar.IsCompact);
+                Assert.Equal(0, scroll.ScrollableWidth);
+
+                host.Width = 700;
+                host.UpdateLayout();
+                StaTestRunner.PumpPendingUi();
+                host.UpdateLayout();
+
+                Assert.True(toolbar.IsCompact);
+                Assert.True(scroll.ScrollableWidth > 0);
+            }
+            finally
+            {
+                host.Close();
+            }
+        });
+    }
+
     private static MainToolbar CreateToolbar(MainViewModel vm)
     {
         var toolbar = new MainToolbar

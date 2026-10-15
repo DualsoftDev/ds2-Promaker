@@ -82,6 +82,7 @@ public partial class TagInspectorDialog : Window
         _filterDebouncer = new RowFilterDebouncer(() => _view.Refresh());
 
         DataContext = this;
+        Closing += TagInspectorDialog_Closing;
 
         LoadFromStore();
     }
@@ -251,7 +252,16 @@ public partial class TagInspectorDialog : Window
             : v;
     }
 
-    private void Refresh_Click(object sender, RoutedEventArgs e) => LoadFromStore();
+    private void Refresh_Click(object sender, RoutedEventArgs e)
+    {
+        var pending = PendingIoEditCount;
+        if (pending > 0
+            && DialogHelpers.ShowThemedMessageBox(
+                   $"적용하지 않은 I/O 변경 {pending}건을 버리고 새로고침할까요?",
+                   "새로고침", MessageBoxButton.OKCancel, "❓") != MessageBoxResult.OK)
+            return;
+        LoadFromStore();
+    }
 
     private void IoGrid_LayoutUpdated(object? sender, EventArgs e)
     {
@@ -323,6 +333,66 @@ public partial class TagInspectorDialog : Window
     {
         if (e.PropertyName == nameof(IoBatchRow.IsSelected))
             BatchDialogHelper.UpdateSelectedCount(_rows, SelectedCountText);
+        else if (e.PropertyName == nameof(IoBatchRow.IsChanged))
+            RefreshApplyIoState();
+    }
+
+    // ── I/O 직접 편집 (#212) ────────────────────────────────────────────────
+    // 4/28 이후 읽기 전용이라 I/O 하나 고치려면 Properties 에서 Call 을 찾아가야 했다. 표에서 고치고 한 번에 적용한다.
+
+    private int PendingIoEditCount => _rows.Count(r => r.IsChanged);
+
+    private void RefreshApplyIoState()
+    {
+        var pending = PendingIoEditCount;
+        ApplyIoButton.IsEnabled = pending > 0;
+        ApplyIoButton.Content = pending > 0 ? $"변경 적용 ({pending})" : "변경 적용";
+    }
+
+    /// <summary>Reference Call·매핑 없는 행은 고칠 ApiCall 이 없으니 편집을 막는다.</summary>
+    private void IoGrid_BeginningEdit(object? sender, DataGridBeginningEditEventArgs e)
+    {
+        if (e.Row.Item is IoBatchRow { IsEditable: false })
+            e.Cancel = true;
+    }
+
+    private void ApplyIo_Click(object sender, RoutedEventArgs e) => ApplyIoEdits();
+
+    /// <summary>표에서 고친 행만 모델에 반영한다 — UpdateApiCallIoTagsBatch 로 Undo 한 번. 반환 = 실패 없이 끝났는지.</summary>
+    internal bool ApplyIoEdits()
+    {
+        IoGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+        IoGrid.CommitEdit(DataGridEditingUnit.Row, true);
+        var changed = _rows.Where(r => r.IsChanged).ToList();
+        if (changed.Count == 0)
+            return true;
+
+        var result = IoTagApplier.Apply(_store, changed);
+        LoadFromStore();
+        if (!result.AnyFailed)
+            return true;
+
+        DialogHelpers.ShowThemedMessageBox(
+            $"{result.SuccessCount}개 적용, {result.FailedCount}개 실패:\n"
+            + string.Join("\n", result.FailedItems.Take(10)),
+            "I/O 변경 적용", MessageBoxButton.OK, "⚠");
+        return false;
+    }
+
+    /// <summary>적용하지 않은 편집이 있으면 닫기 전에 묻는다 — 말없이 버려지지 않게.</summary>
+    private void TagInspectorDialog_Closing(object? sender, CancelEventArgs e)
+    {
+        IoGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+        IoGrid.CommitEdit(DataGridEditingUnit.Row, true);
+        var pending = PendingIoEditCount;
+        if (pending == 0)
+            return;
+
+        var answer = DialogHelpers.ShowThemedMessageBox(
+            $"적용하지 않은 I/O 변경이 {pending}건 있습니다. 적용할까요?",
+            "I/O 변경 적용", MessageBoxButton.YesNoCancel, "❓");
+        if (answer == MessageBoxResult.Cancel || (answer == MessageBoxResult.Yes && !ApplyIoEdits()))
+            e.Cancel = true;
     }
 
     private void CheckSelected_Click(object sender, RoutedEventArgs e) =>
@@ -350,6 +420,8 @@ public partial class TagInspectorDialog : Window
     private void IoGrid_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Delete) return;
+        // 셀을 고치는 중의 Delete 는 글자 지우기다 — I/O 삭제로 가로채지 않는다.
+        if (e.OriginalSource is TextBox) return;
         DeleteSelectedIo_Click(sender, e);
         e.Handled = true;
     }
@@ -359,6 +431,13 @@ public partial class TagInspectorDialog : Window
     // 참조 Call / 매핑 없는 행(CallId·ApiCallId Empty = dangling)은 건너뛴다.
     private void DeleteSelectedIo_Click(object sender, RoutedEventArgs e)
     {
+        if (PendingIoEditCount > 0)
+        {
+            DialogHelpers.ShowThemedMessageBox("적용하지 않은 I/O 변경이 있습니다. 먼저 '변경 적용' 을 누르거나 새로고침하세요.",
+                "I/O 삭제", MessageBoxButton.OK, "ℹ");
+            return;
+        }
+
         var targets = _rows.Where(r => r.IsSelected).ToList();
         if (targets.Count == 0)
         {

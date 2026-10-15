@@ -45,6 +45,8 @@ public partial class MainToolbar : UserControl
 
     /// 자식 섹션의 DesiredSize 합(= Auto 열이라 무한 폭 기준의 '원하는 폭')과 실제 폭을 비교해
     /// 넘치면 compact 로 전환한다. 임계값을 상수로 박지 않고 실측으로 판정한다.
+    /// 오른쪽 기타 묶음은 RibbonGrid 밖(DockPanel 오른쪽)이라 그 폭과 테두리 여백을 따로 더한다 — 빼고 비교하던 때는
+    /// 기타 묶음 폭만큼 늦게 접혀 시뮬레이션 묶음 오른쪽이 잘렸다(#260). 접어도 모자라면 RibbonScroll 이 가로 스크롤을 준다.
     private void UpdateCompactState()
     {
         if (RibbonGrid is null || ActualWidth <= 0)
@@ -60,7 +62,13 @@ public partial class MainToolbar : UserControl
                 needed += child.DesiredSize.Width;
             }
             if (needed > 0)
+            {
+                if (EtcContent.Visibility == Visibility.Visible)
+                    needed += EtcContent.DesiredSize.Width;
+                if (Content is Border { Padding: var padding })
+                    needed += padding.Left + padding.Right;
                 _expandedNeededWidth = needed;
+            }
         }
         if (_expandedNeededWidth <= 0)
             return;
