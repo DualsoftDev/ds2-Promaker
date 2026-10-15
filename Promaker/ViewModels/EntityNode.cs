@@ -61,6 +61,12 @@ public partial class EntityNode : ObservableObject
     /// 시뮬레이션 토큰 표시 (빈 문자열 = 토큰 없음)
     [ObservableProperty] private string _simTokenDisplay = "";
 
+    /// <summary>Device 트리의 Device System 노드 — 사용 현황 요약(툴팁). 다른 노드는 null (#263).</summary>
+    [ObservableProperty] private string? _usageToolTip;
+
+    /// <summary>Device System 을 쓰는 Call 이 하나도 없다 — 트리에서 흐리게 "(미사용)" 표시 (#263).</summary>
+    [ObservableProperty] private bool _isUnused;
+
     public ObservableCollection<EntityNode> Children { get; } = [];
 
     public void UpdateConditionTypes(IEnumerable<ConditionType> types)

@@ -106,6 +106,9 @@
                              SystemPlcSectionControl 에 있다(이 파일은 400줄을 넘어 기능 로컬 마크업을 더 두지 않는다). -->
                         <ctrl:SystemPlcSectionControl/>
 
+                        <!-- Device(Passive) System 의 사용 현황 (#263) -->
+                        <ctrl:DeviceUsageSectionControl/>
+
                         <Border BorderBrush="{DynamicResource BorderBrush}"
                                 BorderThickness="1"
                                 Margin="0,2,0,8"

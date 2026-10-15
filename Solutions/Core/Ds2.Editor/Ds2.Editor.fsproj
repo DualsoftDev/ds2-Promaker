@@ -31,6 +31,7 @@
     <Compile Include="Queries\CanvasContextMenuState.fs" />
     <Compile Include="Queries\ConditionSymbolQueries.fs" />
     <Compile Include="Queries\ConnectionQueries.fs" />
+    <Compile Include="Queries\DeviceUsageQueries.fs" />
     <Compile Include="Store\Log.fs" />
     <Compile Include="Store\Nodes\Remove.fs" />
     <Compile Include="Store\Nodes\Device.fs" />

@@ -130,6 +130,8 @@ public partial class PropertyPanelState
             RefreshSystemPanel(selected.Id);
             // PLC 연결 섹션 — Active System(=PLC 1대)에서만. AID endpoint 를 인라인 편집.
             RefreshSystemPlcPanel(selected.Id, projection.IsPassiveSystem);
+            // 사용 현황 섹션 — Device(Passive) System 에서만 (#263).
+            RefreshDeviceUsagePanel(selected.Id, projection.IsPassiveSystem);
             // Passive(수동/디바이스) 시스템은 UserTags 미보유 → 패널 숨김 + 갱신 생략.
             ShowSystemUserTags = !projection.IsPassiveSystem;
             if (ShowSystemUserTags)

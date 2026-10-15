@@ -169,6 +169,8 @@ public partial class ExplorerPane
         clone.IsDropTarget = source.IsDropTarget;
         clone.SimState = source.SimState;
         clone.SimTokenDisplay = source.SimTokenDisplay;
+        clone.UsageToolTip = source.UsageToolTip;
+        clone.IsUnused = source.IsUnused;
         return clone;
     }
 }

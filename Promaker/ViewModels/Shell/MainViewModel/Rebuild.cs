@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows.Threading;
+using Ds2.Core;
 using Ds2.Core.Store;
 using Ds2.Editor;
 
@@ -32,6 +33,7 @@ public partial class MainViewModel
 
         ReconcileTreeLevel(ControlTreeRoots, trees.Item1);
         ReconcileTreeLevel(DeviceTreeRoots, trees.Item2);
+        ApplyDeviceUsageToTree();
         ReconcileTreeLevel(DisabledFlows, EditorTreeProjection.DisabledFlows(_store));
 
         Selection.ApplyExpansionStateTo(ControlTreeRoots, expandedNodes);
@@ -44,6 +46,29 @@ public partial class MainViewModel
         }
 
         Selection.RestoreSelection(prevSelection, prevSelectedArrowIds);
+    }
+
+    /// <summary>Device 트리의 Device System 노드에 사용 현황 툴팁과 미사용 표시를 붙인다(#263).
+    /// Device 는 독립 System 이라 여러 System 이 같이 쓴다 — 소속이 아니라 어디에 쓰이는지를 보여 준다.</summary>
+    private void ApplyDeviceUsageToTree()
+    {
+        var deviceNodes = TreeNodeSearch.EnumerateNodes(DeviceTreeRoots)
+            .Where(n => n.EntityType == EntityKind.System)
+            .ToList();
+        if (deviceNodes.Count == 0)
+            return;
+        if (!TryEditorRef(
+                () => DeviceUsageQueries.summariesOf(_store, deviceNodes.Select(n => n.Id).ToList()),
+                out var summaries))
+            return;
+
+        foreach (var node in deviceNodes)
+        {
+            if (!summaries.TryGetValue(node.Id, out var summary))
+                continue;
+            node.UsageToolTip = summary.Text;
+            node.IsUnused = summary.IsUnused;
+        }
     }
 
     /// <summary>트리 + 캔버스 전면 재구축 예약.</summary>

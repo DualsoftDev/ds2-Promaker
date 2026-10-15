@@ -48,6 +48,7 @@
     <Compile Include="UndoMergeTests.fs" />
     <Compile Include="StoreRevisionTests.fs" />
     <Compile Include="DeviceDurationQueryTests.fs" />
+    <Compile Include="DeviceUsageQueriesTests.fs" />
     <Compile Include="AddTargetQueriesTests.fs" />
     <Compile Include="UndoCapacityTests.fs" />
     <Compile Include="StoreIndexParityTests.fs" />

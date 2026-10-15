@@ -76,7 +76,13 @@
                                    FontSize="10" FontWeight="Bold"
                                    Foreground="{Binding EntityType, Converter={StaticResource TypeToForeground}}"/>
                     </Border>
-                    <TextBlock x:Name="TreeNodeName" Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" FontSize="13"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
+                                ToolTip="{Binding UsageToolTip}">
+                        <TextBlock x:Name="TreeNodeName" Text="{Binding Name}" VerticalAlignment="Center" FontSize="13"/>
+                        <!-- 아무 Call 도 안 쓰는 Device System (#263) -->
+                        <TextBlock x:Name="UnusedLabel" Text=" (미사용)" VerticalAlignment="Center" FontSize="11"
+                                   Foreground="{DynamicResource SecondaryTextBrush}" Visibility="Collapsed"/>
+                    </StackPanel>
                     <Border Grid.Column="2"
                             Margin="6,0,0,0"
                             Padding="5,0"
@@ -107,6 +113,10 @@
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsCutPending}" Value="True">
                     <Setter TargetName="TreeItemBorder" Property="Opacity" Value="0.4"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsUnused}" Value="True">
+                    <Setter TargetName="TreeNodeName" Property="Opacity" Value="0.55"/>
+                    <Setter TargetName="UnusedLabel" Property="Visibility" Value="Visible"/>
                 </DataTrigger>
             </HierarchicalDataTemplate.Triggers>
         </HierarchicalDataTemplate>

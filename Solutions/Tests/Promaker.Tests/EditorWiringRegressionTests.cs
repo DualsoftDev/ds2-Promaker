@@ -124,6 +124,35 @@ public sealed class EditorWiringRegressionTests
         });
     }
 
+    /// <summary>Device 를 고르면 속성 창에 사용 현황이 나오고, Device 트리에는 사용처 툴팁과 미사용 표시가 붙는다(#263).
+    /// 예전엔 Device 가 어디에 쓰이는지 알 길이 없었다.</summary>
+    [Fact]
+    public void Device_usage_is_shown_in_the_property_panel_and_the_device_tree()
+    {
+        StaTestRunner.Run(() =>
+        {
+            var (vm, store, _, projectId, _, flowId) = NewProject();
+            var workId = store.AddWork("W", flowId);
+            store.AddCallsWithDevice(projectId, workId, new[] { "Cyl.Adv" }, true, null);
+            var call = Queries.callsOf(workId, store).Single();
+            var deviceId = store.ApiDefs[call.ApiCalls[0].ApiDefId.Value].ParentId;
+            StaTestRunner.PumpPendingUi();
+
+            var deviceNode = TreeNodeSearch.EnumerateNodes(vm.DeviceTreeRoots).Single(n => n.Id == deviceId);
+            Assert.False(deviceNode.IsUnused);
+            Assert.Contains("1곳", deviceNode.UsageToolTip);
+
+            vm.Selection.SelectNodeFromTree(deviceNode, ctrlPressed: false, shiftPressed: false);
+            StaTestRunner.PumpPendingUi();
+            Assert.True(vm.PropertyPanel.ShowDeviceUsage);
+            Assert.Equal(call.Id, Assert.Single(vm.PropertyPanel.DeviceUsages).OwnerId);
+
+            store.RemoveEntities(new[] { Tuple.Create(EntityKind.Call, call.Id) });
+            StaTestRunner.PumpPendingUi();
+            Assert.True(TreeNodeSearch.EnumerateNodes(vm.DeviceTreeRoots).Single(n => n.Id == deviceId).IsUnused);
+        });
+    }
+
     /// <summary>Reference 가 걸린 Work 를 다른 Flow 로 옮기면 막고 이유를 알려야 한다 — 예전엔 원본이 옮겨지고 Reference 가
     /// 경고 없이 지워졌다.</summary>
     [Fact]
