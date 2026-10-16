@@ -10,8 +10,9 @@ namespace Promaker.ViewModels;
 
 /// <summary>
 /// Device CSV 불러오기(#253) — Device·Api 선언(Device,Api,ActionType,SensingType,Description)을 기존 프로젝트에 더한다.
-/// 표준 CSV 는 Call 한 줄이 기준이라 Device·Api 만 적을 수 없었다. 같은 이름의 Api 가 이미 있으면 건너뛸지 새 이름으로 넣을지 묻는다.
-/// 해석은 Ds2.CSV(DeviceCsv), 모델 변경 규칙은 F#(ImportDeviceApis) — 여기서는 파일·질문·상태줄만 다룬다.
+/// 표준 CSV 는 Call 한 줄이 기준이라 Device·Api 만 적을 수 없었다. 같은 이름의 Device(System)가 이미 있으면
+/// 그 Device 를 건너뛸지 새 이름(Cyl_1 …)으로 만들지 묻는다.
+/// 해석은 Ds2.CSV(DeviceCsv), 모델 변경 규칙은 F#(ImportDevices) — 여기서는 파일·질문·상태줄만 다룬다.
 /// </summary>
 public partial class MainViewModel
 {
@@ -64,24 +65,26 @@ public partial class MainViewModel
             return;
         }
 
-        if (!TryEditorRef(() => _store.FindDeviceApiConflicts(project.Id, specs), out var conflicts))
+        if (!TryEditorRef(() => _store.FindExistingDeviceNames(project.Id, specs), out var existingNames))
             return;
 
-        var mode = DeviceApiConflictMode.Skip;
-        if (!conflicts.IsEmpty)
+        var mode = DeviceNameConflictMode.Skip;
+        if (!existingNames.IsEmpty)
         {
-            var choice = _dialogService.PromptDeviceApiConflict(conflicts.Select(c => c.FullName).ToList());
+            var choice = _dialogService.PromptDeviceNameConflict(existingNames.ToList());
             if (choice is null)
                 return;
             mode = choice.Value;
         }
 
-        if (!TryEditorRef(() => _store.ImportDeviceApis(project.Id, specs, mode), out var result))
+        if (!TryEditorRef(() => _store.ImportDevices(project.Id, specs, mode), out var result))
             return;
 
         var status = $"Device CSV: Device {result.AddedDevices}개, Api {result.AddedApis}개 추가";
-        if (!result.Skipped.IsEmpty) status += $", {result.Skipped.Length}개 건너뜀";
-        if (!result.Renamed.IsEmpty) status += $", {result.Renamed.Length}개 새 이름";
+        if (!result.SkippedDevices.IsEmpty)
+            status += $", Device {result.SkippedDevices.Length}개 건너뜀";
+        if (!result.RenamedDevices.IsEmpty)
+            status += ", 새 이름 " + string.Join(", ", result.RenamedDevices.Select(r => $"{r.Item1} → {r.Item2}"));
         StatusText = status;
     }
 }

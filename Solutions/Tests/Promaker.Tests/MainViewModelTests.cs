@@ -168,6 +168,6 @@ public sealed class MainViewModelTests
         public T? ShowDialog<T>(Window dialog) where T : class => _showDialog(dialog) == true ? dialog.DataContext as T : null;
         public bool? ShowDialog(Window dialog) => _showDialog(dialog);
         public Ds2.Editor.CrossFlowDeviceMode? PromptCrossFlowDeviceMode(CrossFlowDeviceModePromptContext context) => null;
-        public Ds2.Editor.DeviceApiConflictMode? PromptDeviceApiConflict(System.Collections.Generic.IReadOnlyList<string> conflictNames) => null;
+        public Ds2.Editor.DeviceNameConflictMode? PromptDeviceNameConflict(System.Collections.Generic.IReadOnlyList<string> deviceNames) => null;
     }
 }

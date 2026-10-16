@@ -97,21 +97,21 @@ public class DialogService : IDialogService
         return dlg.ShowDialog() == true ? dlg.SelectedMode : null;
     }
 
-    public DeviceApiConflictMode? PromptDeviceApiConflict(System.Collections.Generic.IReadOnlyList<string> conflictNames)
+    public DeviceNameConflictMode? PromptDeviceNameConflict(System.Collections.Generic.IReadOnlyList<string> deviceNames)
     {
         const int shown = 10;
-        var list = string.Join("\n", conflictNames.Take(shown).Select(name => "  " + name));
-        var more = conflictNames.Count > shown ? $"\n  … 외 {conflictNames.Count - shown}건" : "";
+        var list = string.Join("\n", deviceNames.Take(shown).Select(name => "  " + name));
+        var more = deviceNames.Count > shown ? $"\n  … 외 {deviceNames.Count - shown}개" : "";
         var answer = Dialogs.DialogHelpers.ShowThemedMessageBox(
-            $"같은 이름의 Api 가 이미 {conflictNames.Count}건 있습니다.\n{list}{more}\n\n"
-            + "예: 건너뛰기 — 있는 Api 는 그대로 둡니다.\n"
-            + "아니요: 새 이름으로 추가 — 예) Adv → Adv_1\n"
+            $"같은 이름의 Device 가 이미 {deviceNames.Count}개 있습니다.\n{list}{more}\n\n"
+            + "예: 건너뛰기 — 그 Device 의 줄은 불러오지 않고, 기존 Device 는 그대로 둡니다.\n"
+            + "아니요: 새 이름으로 추가 — 예) Cyl → Cyl_1 로 새 Device 를 만듭니다.\n"
             + "취소: 불러오지 않습니다.",
             "Device CSV 불러오기", MessageBoxButton.YesNoCancel, "❓");
         return answer switch
         {
-            MessageBoxResult.Yes => DeviceApiConflictMode.Skip,
-            MessageBoxResult.No => DeviceApiConflictMode.Rename,
+            MessageBoxResult.Yes => DeviceNameConflictMode.Skip,
+            MessageBoxResult.No => DeviceNameConflictMode.Rename,
             _ => null
         };
     }

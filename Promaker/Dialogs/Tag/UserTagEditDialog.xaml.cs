@@ -41,6 +41,7 @@ public partial class UserTagEditDialog : Window
     ];
 
     private readonly HashSet<string> _existingNamesLower;
+    private readonly UserTagPanelItem? _existing;
     private bool _initializing = true;
 
     public string TagName { get; private set; } = string.Empty;
@@ -55,6 +56,7 @@ public partial class UserTagEditDialog : Window
     {
         InitializeComponent();
 
+        _existing = existing;
         _existingNamesLower = new HashSet<string>(
             existingNames?.Where(n => !string.IsNullOrWhiteSpace(n)).Select(n => n.Trim().ToLowerInvariant())
             ?? Enumerable.Empty<string>());
@@ -211,17 +213,31 @@ public partial class UserTagEditDialog : Window
             return;
         }
 
-        TagName = name;
-        TagAddress = addr;
-
-        LogLevel = "Error"; // 사용자 태그는 모두 Error 취급(Warning/Info 미사용)
-
-        ValueType = SelectedValueType();
-        MatchOp = op;
-        // edge / Changed 류는 값이 무의미 — 빈 문자열로 저장해 정의 직렬화 모호성을 줄임.
-        MatchValue = needsValue ? mv : string.Empty;
+        (TagName, LogLevel, TagAddress, ValueType, MatchOp, MatchValue) =
+            ResolveResult(_existing, name, addr, SelectedValueType(), op, mv, needsValue);
 
         DialogResult = true;
+    }
+
+    /// <summary>
+    /// 확인 시 돌려줄 값. 보이는 칸(이름·주소·값 형식·조건, 조건이 쓰는 기준값)이 기존 태그와 같으면 기존 값을 그대로 돌려준다(#230).
+    /// 새로 만들거나 칸을 바꾸면 정책대로 로그 레벨을 Error 로 올리고(Warning/Info 미사용), Edge·Changed 조건의 기준값은 비운다.
+    /// 예전엔 아무것도 안 바꿔도 이 정규화로 값이 달라져(Info → Error 등) History 에 "사용자 태그 편집" 이 쌓였다.
+    /// </summary>
+    internal static (string Name, string LogLevel, string Address, string ValueType, string MatchOp, string MatchValue) ResolveResult(
+        UserTagPanelItem? existing, string name, string address, string valueType, string matchOp, string matchValue, bool needsValue)
+    {
+        var unchanged = existing is not null
+            && existing.Name == name
+            && existing.TagAddress == address
+            && existing.ValueType == valueType
+            && string.Equals(existing.MatchOp, matchOp, StringComparison.OrdinalIgnoreCase)
+            && (!needsValue || (existing.MatchValue ?? string.Empty) == matchValue);
+        if (unchanged)
+            return (existing!.Name, existing.LogLevel, existing.TagAddress, existing.ValueType, existing.MatchOp,
+                    existing.MatchValue ?? string.Empty);
+
+        return (name, "Error", address, valueType, matchOp, needsValue ? matchValue : string.Empty);
     }
 
     private sealed record MatchOpItem(string Display, string Op)

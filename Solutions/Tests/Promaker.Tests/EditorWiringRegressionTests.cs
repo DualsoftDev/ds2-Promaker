@@ -153,12 +153,13 @@ public sealed class EditorWiringRegressionTests
         });
     }
 
-    /// <summary>Device CSV 를 불러오면 같은 이름의 Api 만 물어보고, 고른 대로 새 이름으로 넣는다(#253).</summary>
+    /// <summary>Device CSV 를 불러오면 이미 있는 Device 이름만 묻고, 고른 대로 새 이름의 Device 로 넣는다(#253).
+    /// 기존 Device 안에는 Api 를 섞어 넣지 않는다.</summary>
     [Fact]
-    public void Importing_a_device_csv_asks_about_existing_api_names_and_renames_them()
+    public void Importing_a_device_csv_asks_about_existing_device_names_and_adds_a_renamed_device()
     {
         var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"devices-{Guid.NewGuid():N}.csv");
-        System.IO.File.WriteAllText(path, "Device,Api,ActionType,SensingType\nCyl,Adv,,\nCyl,Hold,Pulse,\n");
+        System.IO.File.WriteAllText(path, "Device,Api,ActionType,SensingType\nCyl,Adv,,\nCyl,Hold,Pulse,\nLamp,On,,\n");
         try
         {
             StaTestRunner.Run(() =>
@@ -167,24 +168,28 @@ public sealed class EditorWiringRegressionTests
                 var dialogs = new TestDialogService
                 {
                     OpenFilePath = path,
-                    DeviceApiConflictChoice = DeviceApiConflictMode.Rename
+                    DeviceNameConflictChoice = DeviceNameConflictMode.Rename
                 };
                 TestReflection.Set(vm, "_dialogService", dialogs);
                 vm.NewProjectCommand.Execute(null);
                 StaTestRunner.PumpPendingUi();
                 var store = TestReflection.Get<DsStore>(vm, "_store");
                 var projectId = Assert.Single(store.Projects.Keys);
-                store.ImportDeviceApis(projectId, new[]
+                store.ImportDevices(projectId, new[]
                 {
                     new DeviceApiSpec("Cyl", "Adv", ActionType.NewNormal(null), SensingType.NewNormal(null), "")
-                }, DeviceApiConflictMode.Skip);
+                }, DeviceNameConflictMode.Skip);
 
                 vm.ImportDeviceCsvCommand.Execute(null);
 
-                Assert.Equal(new[] { "Cyl.Adv" }, Assert.Single(dialogs.DeviceApiConflictPrompts));
-                var device = Queries.passiveSystemsOf(projectId, store).Single(s => s.Name == "Cyl");
-                Assert.Equal(new[] { "Adv", "Adv_1", "Hold" },
-                    Queries.apiDefsOf(device.Id, store).Select(d => d.Name).OrderBy(n => n).ToArray());
+                Assert.Equal(new[] { "Cyl" }, Assert.Single(dialogs.DeviceNameConflictPrompts));
+                string[] ApiNamesOf(string device) =>
+                    Queries.apiDefsOf(Queries.passiveSystemsOf(projectId, store).Single(s => s.Name == device).Id, store)
+                        .Select(d => d.Name).OrderBy(n => n).ToArray();
+                Assert.Equal(new[] { "Cyl", "Cyl_1", "Lamp" },
+                    Queries.passiveSystemsOf(projectId, store).Select(s => s.Name).OrderBy(n => n).ToArray());
+                Assert.Equal(new[] { "Adv" }, ApiNamesOf("Cyl"));
+                Assert.Equal(new[] { "Adv", "Hold" }, ApiNamesOf("Cyl_1"));
             });
         }
         finally

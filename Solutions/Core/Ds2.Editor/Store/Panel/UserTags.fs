@@ -72,10 +72,13 @@ type DsStorePanelUserTagExtensions =
         (store: DsStore, systemId: Guid, index: int,
          name: string, logLevel: string, tagAddress: string, valueType: string,
          matchOp: string, matchValue: string) : bool =
-        let formatted = UserTagHelpers.format (UserTagStore.buildTag name logLevel tagAddress valueType matchOp matchValue)
+        let newTag = UserTagStore.buildTag name logLevel tagAddress valueType matchOp matchValue
+        let formatted = UserTagHelpers.format newTag
+        // 저장 문자열이 아니라 해석한 태그끼리 비교한다 — 예전 형식(칸 수가 적은 문자열·다른 표기)은 같은 태그도 글자가 달라
+        // 아무것도 안 바꿨는데 "바뀜" 으로 잡혔다.
         let willChange =
             match (StoreLog.requireSystem(store, systemId, "UpdateUserTag")).GetLoggingProperties() with
-            | Some p -> index >= 0 && index < p.UserTags.Count && p.UserTags.[index] <> formatted
+            | Some p -> index >= 0 && index < p.UserTags.Count && UserTagHelpers.parse p.UserTags.[index] <> Some newTag
             | None -> false
         willChange
         && DsStorePanelUserTagExtensions.Mutate(

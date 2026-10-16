@@ -24,9 +24,9 @@ internal sealed class TestDialogService : IDialogService
     /// <summary>파일 열기 대화상자가 돌려줄 경로(null = 취소).</summary>
     public string? OpenFilePath { get; init; }
 
-    /// <summary>Device CSV 의 같은 이름 Api 질문에 대한 답(null = 취소). 받은 질문은 DeviceApiConflictPrompts 에 남는다.</summary>
-    public DeviceApiConflictMode? DeviceApiConflictChoice { get; init; }
-    public List<IReadOnlyList<string>> DeviceApiConflictPrompts { get; } = [];
+    /// <summary>Device CSV 의 같은 이름 Device 질문에 대한 답(null = 취소). 받은 질문은 DeviceNameConflictPrompts 에 남는다.</summary>
+    public DeviceNameConflictMode? DeviceNameConflictChoice { get; init; }
+    public List<IReadOnlyList<string>> DeviceNameConflictPrompts { get; } = [];
 
     public string? PromptName(string title, string defaultName) => defaultName;
     public bool Confirm(string message, string title) => true;
@@ -44,10 +44,10 @@ internal sealed class TestDialogService : IDialogService
     public T? ShowDialog<T>(Window dialog) where T : class => null;
     public bool? ShowDialog(Window dialog) => null;
     public CrossFlowDeviceMode? PromptCrossFlowDeviceMode(CrossFlowDeviceModePromptContext context) => CrossFlowMode;
-    public DeviceApiConflictMode? PromptDeviceApiConflict(IReadOnlyList<string> conflictNames)
+    public DeviceNameConflictMode? PromptDeviceNameConflict(IReadOnlyList<string> deviceNames)
     {
-        DeviceApiConflictPrompts.Add(conflictNames);
-        return DeviceApiConflictChoice;
+        DeviceNameConflictPrompts.Add(deviceNames);
+        return DeviceNameConflictChoice;
     }
 }
 

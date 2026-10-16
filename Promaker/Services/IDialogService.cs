@@ -109,9 +109,9 @@ public interface IDialogService
     CrossFlowDeviceMode? PromptCrossFlowDeviceMode(CrossFlowDeviceModePromptContext context);
 
     /// <summary>
-    /// Device CSV 를 불러올 때 그 Device 에 같은 이름의 Api 가 이미 있으면 어떻게 할지 묻는다(#253).
+    /// Device CSV 를 불러올 때 프로젝트에 같은 이름의 Device(System)가 이미 있으면 어떻게 할지 묻는다(#253).
     /// </summary>
-    /// <param name="conflictNames">겹치는 "Device.Api" 목록</param>
-    /// <returns>건너뛰기 또는 새 이름으로 추가, 취소 시 null</returns>
-    DeviceApiConflictMode? PromptDeviceApiConflict(System.Collections.Generic.IReadOnlyList<string> conflictNames);
+    /// <param name="deviceNames">이름이 겹치는 Device 목록</param>
+    /// <returns>건너뛰기 또는 새 이름의 Device 로 추가, 취소 시 null</returns>
+    DeviceNameConflictMode? PromptDeviceNameConflict(System.Collections.Generic.IReadOnlyList<string> deviceNames);
 }
