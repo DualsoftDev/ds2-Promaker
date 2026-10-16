@@ -705,3 +705,23 @@ module PanelIntegrityRegressionTests =
         Assert.False(hasPreset)
         let flowOverride = store.Flows.[flow.Id].GetControlProperties() |> Option.bind (fun p -> p.BaseAddressOverride)
         Assert.True(flowOverride.IsNone)
+
+
+/// 신호 수량을 같은 값으로 다시 적용하면 새 이력이 없으니 합치지도 않는다 — 합치면 그 전의 서로 다른 두 이력이 하나가 됐다.
+module SignalCountNoOpTests =
+
+    [<Fact>]
+    let ``applying the same signal counts again keeps the history as it is`` () =
+        let store = createStore ()
+        let project, _, flow, work = setupBasicHierarchy store
+        store.AddCallsWithDevice(project.Id, work.Id, [ "D.A1" ], true, None)
+        let callIds = Queries.callsOf work.Id store |> List.map (fun c -> c.Id)
+        let counts = System.Collections.Generic.Dictionary<string, int>()
+        counts.["A1"] <- 3
+        store.ApplySignalCountsToNewCalls(callIds, counts)
+        store.AddWork("W2", flow.Id) |> ignore
+        let before = store.HistoryPosition()
+
+        store.ApplySignalCountsToNewCalls(callIds, counts)
+
+        Assert.Same(before, store.HistoryPosition())

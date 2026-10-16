@@ -106,6 +106,23 @@ module internal ConditionTreeOps =
             cc.Children.Add(buildPreserving store existing child None)  // children 은 Type 미설정
         cc
 
+    /// 두 leaf 가 같은지. store 의 ApiCall 을 복사한 leaf 는 원본 Id 를 그대로 쓰지만, raw 심볼·Inverter 자리표시는
+    /// 만들 때마다 새 Id 를 받으므로 이름으로 본다.
+    let private sameLeaf (store: DsStore) (x: ApiCall) (y: ApiCall) : bool =
+        let sameSource =
+            x.Id = y.Id
+            || (x.Name = y.Name && not (store.ApiCalls.ContainsKey x.Id) && not (store.ApiCalls.ContainsKey y.Id))
+        sameSource && x.ContactKind = y.ContactKind && x.InputSpec = y.InputSpec && x.OutputSpec = y.OutputSpec
+
+    /// 두 조건 트리가 같은지 — Condition Id 는 교체할 때마다 새로 붙으므로 빼고, 종류·OR·부정과 leaf(원본·접점·기대값·출력값)를 본다.
+    /// 조건 편집기에서 아무것도 안 바꾸고 저장·닫기 하면 같은 트리가 오는데, 새 Id 때문에 늘 "바뀜" 으로 기록됐다(#230).
+    let rec sameTree (store: DsStore) (a: Condition) (b: Condition) : bool =
+        a.Type = b.Type && a.IsOR = b.IsOR && a.IsInverted = b.IsInverted
+        && a.ApiCalls.Count = b.ApiCalls.Count
+        && Seq.forall2 (sameLeaf store) a.ApiCalls b.ApiCalls
+        && a.Children.Count = b.Children.Count
+        && Seq.forall2 (sameTree store) a.Children b.Children
+
     let build (store: DsStore) (dto: ConditionTreeDto) (typeOpt: ConditionType option) : Condition =
         buildPreserving store Map.empty dto typeOpt
 
@@ -143,13 +160,17 @@ type DsStorePanelConditionExtensions =
                                             tree: ConditionTreeDto) =
         Queries.requireNonReferenceCall callId store
         StoreLog.debug($"callId={callId}, condType={condType}")
-        StoreLog.requireCall(store, callId) |> ignore
-        DirectPanelOps.mutateCallProps store callId "Call 조건 트리 교체" (fun c ->
-            // 기존 condType conditions 제거.
-            let toRemove = c.Conditions |> Seq.filter (fun cc -> cc.Type = Some condType) |> Seq.toList
-            let existing = toRemove |> List.fold ConditionTreeOps.collectLeaves Map.empty
-            for cc in toRemove do c.Conditions.Remove(cc) |> ignore
-            c.Conditions.Add(ConditionTreeOps.buildPreserving store existing tree (Some condType)))
+        let call = StoreLog.requireCall(store, callId)
+        let current = call.Conditions |> Seq.filter (fun cc -> cc.Type = Some condType) |> Seq.toList
+        let built =
+            ConditionTreeOps.buildPreserving store (current |> List.fold ConditionTreeOps.collectLeaves Map.empty) tree (Some condType)
+        match current with
+        | [ only ] when ConditionTreeOps.sameTree store only built -> ()   // 같은 트리 — 그대로 두고 이력도 남기지 않는다.
+        | _ ->
+            DirectPanelOps.mutateCallProps store callId "Call 조건 트리 교체" (fun c ->
+                for cc in c.Conditions |> Seq.filter (fun cc -> cc.Type = Some condType) |> Seq.toList do
+                    c.Conditions.Remove(cc) |> ignore
+                c.Conditions.Add(built))
 
     /// 해당 type 의 조건 트리를 모두 지운다 — 조건 편집기에서 leaf 를 전부 지우고 저장했을 때(명시적 삭제).
     /// 예전엔 leaf 0개 저장을 "빈 트리 방지" 로 조용히 건너뛰어, 지웠다고 생각한 조건이 그대로 남았다.
@@ -337,12 +358,17 @@ type DsStorePanelWorkConditionExtensions =
     static member ReplaceWorkConditionTree(store: DsStore, workId: Guid, condType: ConditionType,
                                             tree: ConditionTreeDto) =
         StoreLog.debug($"workId={workId}, condType={condType}")
-        StoreLog.requireWork(store, workId) |> ignore
-        DirectPanelOps.mutateWorkProps store workId "Work 조건 트리 교체" (fun w ->
-            let toRemove = w.Conditions |> Seq.filter (fun cc -> cc.Type = Some condType) |> Seq.toList
-            let existing = toRemove |> List.fold ConditionTreeOps.collectLeaves Map.empty
-            for cc in toRemove do w.Conditions.Remove(cc) |> ignore
-            w.Conditions.Add(ConditionTreeOps.buildPreserving store existing tree (Some condType)))
+        let work = StoreLog.requireWork(store, workId)
+        let current = work.Conditions |> Seq.filter (fun cc -> cc.Type = Some condType) |> Seq.toList
+        let built =
+            ConditionTreeOps.buildPreserving store (current |> List.fold ConditionTreeOps.collectLeaves Map.empty) tree (Some condType)
+        match current with
+        | [ only ] when ConditionTreeOps.sameTree store only built -> ()   // 같은 트리 — 그대로 두고 이력도 남기지 않는다.
+        | _ ->
+            DirectPanelOps.mutateWorkProps store workId "Work 조건 트리 교체" (fun w ->
+                for cc in w.Conditions |> Seq.filter (fun cc -> cc.Type = Some condType) |> Seq.toList do
+                    w.Conditions.Remove(cc) |> ignore
+                w.Conditions.Add(built))
 
     [<Extension>]
     static member AddWorkConditionWithApiCalls(store: DsStore, workId: Guid, condType: ConditionType, sourceApiCallIds: Guid seq) : Guid =

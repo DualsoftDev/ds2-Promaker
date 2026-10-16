@@ -94,16 +94,19 @@ module internal StoreAuthoring =
     let trackMutate<'T when 'T :> DsEntity> (store: DsStore) (dict: Dictionary<Guid, 'T>) (id: Guid) (mutate: 'T -> unit) =
         match dict.TryGetValue(id) with
         | true, entity ->
-            let oldSnapshot, oldBytes = DeepCopyHelper.backupEntitySizedAs entity
+            let oldSnapshot, oldBytes, oldJson = DeepCopyHelper.backupEntityWithJsonAs entity
             mutate entity
-            let newSnapshot, newBytes = DeepCopyHelper.backupEntitySizedAs entity
-            recordAffectedId store id
-            recordSnapshotBytes store (oldBytes + newBytes)
-            recordUndo store {
-                Undo = fun () -> dict.[id] <- DeepCopyHelper.backupEntityAs oldSnapshot
-                Redo = fun () -> dict.[id] <- DeepCopyHelper.backupEntityAs newSnapshot
-                Description = $"Mutate {typeof<'T>.Name} {id}"
-            }
+            let newSnapshot, newBytes, newJson = DeepCopyHelper.backupEntityWithJsonAs entity
+            // 바뀐 게 없으면(직렬화 결과가 같으면) Undo 기록을 남기지 않는다 — 기록이 없는 트랜잭션은 이력에 들어가지 않는다.
+            // 예전엔 편집 창에서 아무것도 안 바꾸고 확인해도(ApiCall Spec · UserTag · 속성 창) History 에 항목이 쌓였다(#230).
+            if oldJson <> newJson then
+                recordAffectedId store id
+                recordSnapshotBytes store (oldBytes + newBytes)
+                recordUndo store {
+                    Undo = fun () -> dict.[id] <- DeepCopyHelper.backupEntityAs oldSnapshot
+                    Redo = fun () -> dict.[id] <- DeepCopyHelper.backupEntityAs newSnapshot
+                    Description = $"Mutate {typeof<'T>.Name} {id}"
+                }
         | false, _ -> invalidOp $"Entity not found: {id}"
 
     let emitEvent (store: DsStore) (evt: EditorEvent) =

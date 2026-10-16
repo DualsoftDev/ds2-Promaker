@@ -501,3 +501,61 @@ module ConditionTreeClearTests =
         Assert.Equal<ConditionType option list>([ Some ConditionType.ComAux ], types ())
         store.Undo() |> ignore
         Assert.Contains(Some ConditionType.AutoAux, types ())
+
+
+/// 아무것도 안 바꾼 편집은 History 에 남지 않는다(#230) — 조건 편집기·ApiCall Spec 창도 UserTag 와 같은 문제였다.
+module NoOpEditHistoryTests =
+
+    [<Fact>]
+    let ``saving the same condition tree again leaves no history entry but a changed tree does`` () =
+        let store = createStore ()
+        let _, _, _, call, ac1, ac2 = setupCallWithApiCalls store
+        store.ReplaceCallConditionTree(call.Id, ConditionType.AutoAux, dtoFlat false [ ac1; ac2 ])
+        let before = store.HistoryPosition()
+
+        store.ReplaceCallConditionTree(call.Id, ConditionType.AutoAux, dtoFlat false [ ac1; ac2 ])
+        Assert.Same(before, store.HistoryPosition())
+
+        store.ReplaceCallConditionTree(call.Id, ConditionType.AutoAux, dtoFlat true [ ac1; ac2 ])
+        Assert.NotSame(before, store.HistoryPosition())
+        Assert.True(store.Calls.[call.Id].Conditions.[0].IsOR)
+
+    /// raw 심볼(_ON 등)·Inverter 자리표시는 저장할 때마다 새 Id 를 받는다 — 이름·접점으로 같은지 본다.
+    [<Fact>]
+    let ``a condition tree with raw symbols saved again unchanged leaves no history entry`` () =
+        let store = createStore ()
+        let _, _, _, call, ac1, _ = setupCallWithApiCalls store
+        let dto =
+            { dtoFlat false [ ac1 ] with
+                RawSymbols = ([ "_ON" ]: string list) :> System.Collections.Generic.IReadOnlyList<_>
+                RawSymbolKinds = ([ ContactKind.NoContact ]: ContactKind list) :> System.Collections.Generic.IReadOnlyList<_> }
+        store.ReplaceCallConditionTree(call.Id, ConditionType.AutoAux, dto)
+        let before = store.HistoryPosition()
+
+        store.ReplaceCallConditionTree(call.Id, ConditionType.AutoAux, dto)
+
+        Assert.Same(before, store.HistoryPosition())
+
+    [<Fact>]
+    let ``confirming an api call spec with its current values leaves no history entry`` () =
+        let store = createStore ()
+        let _, _, _, call, ac1, _ = setupCallWithApiCalls store
+        let item = store.GetCallApiCallsForPanel(call.Id) |> List.find (fun i -> i.ApiCallId = ac1)
+        let before = store.HistoryPosition()
+
+        store.UpdateApiCallFromPanel(
+            call.Id, ac1, item.ApiDefId.Value, item.Name,
+            item.OutputTagName, item.OutputAddress, item.InputTagName, item.InputAddress,
+            item.OutputSpecTypeIndex, item.ValueSpecText, item.InputSpecTypeIndex, item.InputValueSpecText) |> ignore
+
+        Assert.Same(before, store.HistoryPosition())
+
+    [<Fact>]
+    let ``a mutation that changes nothing is not recorded`` () =
+        let store = createStore ()
+        let project = addProject store "P"
+        let before = store.HistoryPosition()
+
+        store.WithTransaction("noop", fun () -> store.TrackMutate(store.Projects, project.Id, fun p -> p.Name <- p.Name))
+
+        Assert.Same(before, store.HistoryPosition())

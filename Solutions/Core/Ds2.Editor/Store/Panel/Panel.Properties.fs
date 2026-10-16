@@ -27,7 +27,9 @@ type DsStorePanelPropertiesExtensions =
         (store: DsStore, callIds: seq<Guid>, signalCounts: System.Collections.Generic.IDictionary<string, int>) =
         let ids = callIds |> Seq.distinct |> Seq.filter store.Calls.ContainsKey |> Seq.toList
         if not ids.IsEmpty && not (isNull signalCounts) && signalCounts.Count > 0 then
-            let previousLabel = (StoreEditorState.get store).UndoManager.UndoLabels |> List.tryHead
+            let undo = (StoreEditorState.get store).UndoManager
+            let previousLabel = undo.UndoLabels |> List.tryHead
+            let before = undo.CurrentPosition
             store.WithTransaction("신호 수량", fun () ->
                 for id in ids do
                     store.TrackMutate(store.Calls, id, fun call ->
@@ -40,9 +42,11 @@ type DsStorePanelPropertiesExtensions =
                                 p
                         for kv in signalCounts do
                             props.SignalCounts.[kv.Key] <- kv.Value))
+            // 값이 이미 같으면 새 트랜잭션이 생기지 않는다 — 그때 합치면 그 전의 서로 다른 두 이력을 합쳐 버린다.
+            let pushed = not (obj.ReferenceEquals(before, undo.CurrentPosition))
             match previousLabel with
-            | Some label -> store.MergeLastTransactions(2, label)
-            | None -> store.EmitHistoryChanged()
+            | Some label when pushed -> store.MergeLastTransactions(2, label)
+            | _ -> store.EmitHistoryChanged()
 
     /// 태그 마법사 1단계 — SystemType 별 FB 선두 주소(IW/QW/MW)를 기본 System(첫 프로젝트의 첫 active System)의
     /// 제어 속성에 Undo 가능하게 기록한다. 숫자가 아닌 칸은 건드리지 않는다.
