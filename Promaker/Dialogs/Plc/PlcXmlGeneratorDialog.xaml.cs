@@ -15,6 +15,7 @@ using Microsoft.Win32;
 using Plc.Xgi;
 using Promaker.Presentation;
 using Promaker.Services;
+using Promaker.Services.Io;
 
 namespace Promaker.Dialogs;
 
@@ -76,8 +77,8 @@ public partial class PlcXmlGeneratorDialog : Window
 
         try
         {
-            // IO 신호/Dummy 통계는 IoSignalPipeline facade 에서 추출 (IoListPipeline 직접 호출 없음).
-            var ioBundle = IoSignalPipeline.GenerateAll(_store);
+            // IO 신호/Dummy 통계는 SignalPipeline facade 에서 추출 (IoListPipeline 직접 호출 없음).
+            var ioBundle = SignalPipeline.GenerateAll(_store);
 
             var xgiOpt = !string.IsNullOrEmpty(xgiTemplatePath) && File.Exists(xgiTemplatePath)
                 ? Microsoft.FSharp.Core.FSharpOption<string>.Some(xgiTemplatePath)
@@ -185,7 +186,7 @@ public partial class PlcXmlGeneratorDialog : Window
     private const int MaxWarningsShown = 10;
 
     private void UpdateSummary(
-        IoSignalPipeline.GenerateResult ioBundle,
+        SignalPipeline.GenerateResult ioBundle,
         Microsoft.FSharp.Core.FSharpResult<Plc.Xgi.PlcXmlGenerationDetail, string> detailResult)
     {
         var sb = new StringBuilder();
@@ -195,7 +196,7 @@ public partial class PlcXmlGeneratorDialog : Window
         SummaryText.Text = sb.ToString().TrimEnd();
     }
 
-    private static void AppendIoListSection(StringBuilder sb, IoSignalPipeline.GenerateResult bundle)
+    private static void AppendIoListSection(StringBuilder sb, SignalPipeline.GenerateResult bundle)
     {
         sb.AppendLine("=== IOList 신호 생성 ===");
         sb.AppendLine($"  IO 신호 (IW/QW): {bundle.IoRows.Count}개");

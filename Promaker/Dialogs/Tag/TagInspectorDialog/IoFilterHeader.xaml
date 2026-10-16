@@ -1,0 +1,154 @@
+<UserControl x:Class="Promaker.Dialogs.TagInspectorIoFilterHeader"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- IO 신호 그리드의 컬럼 필터 헤더 — 열 폭은 다이얼로그가 IoGrid 컬럼에 맞춰 동기화한다. -->
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Resources.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid x:Name="IoHeaderGrid"
+          x:FieldModifier="internal"
+          Background="{DynamicResource PanelHeaderBrush}"
+          ClipToBounds="True">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="34"/>
+            <ColumnDefinition Width="120"/>
+            <ColumnDefinition Width="140"/>
+            <ColumnDefinition Width="140"/>
+            <ColumnDefinition Width="140"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="80"/>
+            <ColumnDefinition Width="120"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="80"/>
+            <ColumnDefinition Width="120"/>
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0" Style="{StaticResource BatchFilterHeaderCellStyle}" Padding="0"/>
+
+        <Border Grid.Column="1" Style="{StaticResource BatchFilterHeaderCellStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="Flow" Style="{StaticResource BatchFilterHeaderTextBlockStyle}"/>
+                <TextBox Grid.Row="1" Tag="Flow"
+                         Style="{StaticResource BatchGridHeaderFilterTextBox}"
+                         TextChanged="FilterTextBox_TextChanged"/>
+            </Grid>
+        </Border>
+        <Border Grid.Column="2" Style="{StaticResource BatchFilterHeaderCellStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="Work" Style="{StaticResource BatchFilterHeaderTextBlockStyle}"/>
+                <TextBox Grid.Row="1" Tag="Work"
+                         Style="{StaticResource BatchGridHeaderFilterTextBox}"
+                         TextChanged="FilterTextBox_TextChanged"/>
+            </Grid>
+        </Border>
+        <Border Grid.Column="3" Style="{StaticResource BatchFilterHeaderCellStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="Device" Style="{StaticResource BatchFilterHeaderTextBlockStyle}"/>
+                <TextBox Grid.Row="1" Tag="Device"
+                         Style="{StaticResource BatchGridHeaderFilterTextBox}"
+                         TextChanged="FilterTextBox_TextChanged"/>
+            </Grid>
+        </Border>
+        <Border Grid.Column="4" Style="{StaticResource BatchFilterHeaderCellStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="Api" Style="{StaticResource BatchFilterHeaderTextBlockStyle}"/>
+                <TextBox Grid.Row="1" Tag="Api"
+                         Style="{StaticResource BatchGridHeaderFilterTextBox}"
+                         TextChanged="FilterTextBox_TextChanged"/>
+            </Grid>
+        </Border>
+        <Border Grid.Column="5" Style="{StaticResource BatchFilterHeaderCellStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="InName" Style="{StaticResource BatchFilterHeaderTextBlockStyle}"/>
+                <TextBox Grid.Row="1" Tag="InName"
+                         Style="{StaticResource BatchGridHeaderFilterTextBox}"
+                         TextChanged="FilterTextBox_TextChanged"/>
+            </Grid>
+        </Border>
+        <Border Grid.Column="6" Style="{StaticResource BatchFilterHeaderCellStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="In Type" Style="{StaticResource BatchFilterHeaderTextBlockStyle}"/>
+                <TextBox Grid.Row="1" Tag="InType"
+                         Style="{StaticResource BatchGridHeaderFilterTextBox}"
+                         TextChanged="FilterTextBox_TextChanged"/>
+            </Grid>
+        </Border>
+        <Border Grid.Column="7" Style="{StaticResource BatchFilterHeaderCellStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="In Address" Style="{StaticResource BatchFilterHeaderTextBlockStyle}"/>
+                <TextBox Grid.Row="1" Tag="InAddress"
+                         Style="{StaticResource BatchGridHeaderFilterTextBox}"
+                         TextChanged="FilterTextBox_TextChanged"/>
+            </Grid>
+        </Border>
+        <Border Grid.Column="8" Style="{StaticResource BatchFilterHeaderCellStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="OutName" Style="{StaticResource BatchFilterHeaderTextBlockStyle}"/>
+                <TextBox Grid.Row="1" Tag="OutName"
+                         Style="{StaticResource BatchGridHeaderFilterTextBox}"
+                         TextChanged="FilterTextBox_TextChanged"/>
+            </Grid>
+        </Border>
+        <Border Grid.Column="9" Style="{StaticResource BatchFilterHeaderCellStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="Out Type" Style="{StaticResource BatchFilterHeaderTextBlockStyle}"/>
+                <TextBox Grid.Row="1" Tag="OutType"
+                         Style="{StaticResource BatchGridHeaderFilterTextBox}"
+                         TextChanged="FilterTextBox_TextChanged"/>
+            </Grid>
+        </Border>
+        <Border Grid.Column="10" Style="{StaticResource BatchFilterHeaderCellStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="Out Address" Style="{StaticResource BatchFilterHeaderTextBlockStyle}"/>
+                <TextBox Grid.Row="1" Tag="OutAddress"
+                         Style="{StaticResource BatchGridHeaderFilterTextBox}"
+                         TextChanged="FilterTextBox_TextChanged"/>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

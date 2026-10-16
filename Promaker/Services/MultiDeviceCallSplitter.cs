@@ -136,7 +136,7 @@ public static class MultiDeviceCallSplitter
         if (toRemove.Count > 0)
         {
             var selections = toRemove.Select(t => Tuple.Create(t.Kind, t.Id));
-            DsStoreNodesExtensions.RemoveEntities(store, selections);
+            DsStoreNodeEditExtensions.RemoveEntities(store, selections);
         }
 
         return (splits, deletes);

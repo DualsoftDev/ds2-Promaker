@@ -77,8 +77,8 @@ public partial class MainViewModel
         (_clipboardSelection.Count > 0 && ResolvePasteTarget().HasValue)
         // 클립보드 또는 파일 채널에 시스템 패키지가 있으면(다른 인스턴스 복사분) 어디서든 붙여넣기 허용.
         // 둘 다 캐시된 저비용 체크 — 클립보드는 시퀀스 번호, 스풀은 2초 TTL.
-        || (HasProject && (Promaker.Services.SystemPackageClipboard.HasPackage()
-                           || Promaker.Services.SystemPackageSpool.HasFreshPackage()));
+        || (HasProject && (Promaker.Services.SystemPackage.Clipboard.HasPackage()
+                           || Promaker.Services.SystemPackage.Spool.HasFreshPackage()));
 
     private bool CanConnectSelectedNodes() =>
         HasProject && Selection.CanConnectSelectedNodesInOrder();

@@ -367,6 +367,6 @@ type DsStoreRenameDeviceExtensions =
                     | idx -> newName[idx + 1..]
                 DsStoreRenameDeviceExtensions.RenameDeviceBatch(store, apiDef.ParentId, None, [ apiDef.Id, localName ]) |> ignore
             | None ->
-                DsStoreNodesExtensions.RenameEntity(store, id, entityKind, newName)
+                DsStoreNodeEditExtensions.RenameEntity(store, id, entityKind, newName)
         | _ ->
-            DsStoreNodesExtensions.RenameEntity(store, id, entityKind, newName)
+            DsStoreNodeEditExtensions.RenameEntity(store, id, entityKind, newName)

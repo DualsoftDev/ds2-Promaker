@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using Ds2.Core.Store;
 using Ds2.Editor;
 using Promaker.Services;
+using Promaker.Services.Naming;
 
 namespace Promaker.ViewModels;
 
@@ -23,7 +24,7 @@ public partial class MainViewModel
     {
         try
         {
-            NamePolicyIssueCount = HasProject ? NamePolicyLint.Scan(_store).Count : 0;
+            NamePolicyIssueCount = HasProject ? PolicyLint.Scan(_store).Count : 0;
         }
         catch
         {
@@ -40,7 +41,7 @@ public partial class MainViewModel
         System.Collections.Generic.List<NamePolicyIssue> issues;
         try
         {
-            issues = NamePolicyLint.Scan(_store);
+            issues = PolicyLint.Scan(_store);
         }
         catch (Exception ex)
         {
@@ -76,7 +77,7 @@ public partial class MainViewModel
         });
         foreach (var row in ordered)
         {
-            var newName = NamePolicyLint.RecomputeSuggested(_store, row.Kind, row.EntityId);
+            var newName = PolicyLint.RecomputeSuggested(_store, row.Kind, row.EntityId);
             if (newName is null)
             {
                 skipped++;

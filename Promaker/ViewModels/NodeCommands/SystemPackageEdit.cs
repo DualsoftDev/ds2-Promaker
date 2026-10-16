@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows;
 using Ds2.Core.Store;
 using Ds2.Editor;
 using Promaker.Services;
+using Promaker.Services.SystemPackage;
 
 namespace Promaker.ViewModels;
 
@@ -13,7 +13,7 @@ namespace Promaker.ViewModels;
 /// System/디바이스 트리의 인스턴스 간 복사/붙여넣기 (패키지 경로).
 /// 기존 내부 클립보드(_clipboardSelection, Flow/Work/Call)와 별개의 경로 — 무회귀.
 ///
-/// 전송층은 2중화: 파일 채널(SystemPackageSpool)이 정본이고 OS 클립보드는 best-effort.
+/// 전송층은 2중화: 파일 채널(Spool)이 정본이고 OS 클립보드는 best-effort.
 /// Windows 클립보드는 전역 배타 자원이라 외부 프로세스(클립보드 관리자·원격 데스크톱·보안
 /// 에이전트)가 점유/차단하면 앱이 손쓸 수 없이 실패한다(CLIPBRD_E_CANT_OPEN) — 그 경우에도
 /// Ctrl+C/Ctrl+V 가 성립해야 하므로 사용자에게 환경 조치를 요구하지 않는다.
@@ -36,13 +36,13 @@ public partial class MainViewModel
             return;
         }
 
-        var roots = new List<SystemPackageClipboard.RootEntry>();
+        var roots = new List<Clipboard.RootEntry>();
         foreach (var key in keys)
         {
             if (!_store.SystemsReadOnly.TryGetValue(key.Id, out var system))
                 continue;
             var isActive = project.ActiveSystemIds.Contains(key.Id);
-            roots.Add(new SystemPackageClipboard.RootEntry(key.Id, isActive, system.Name));
+            roots.Add(new Clipboard.RootEntry(key.Id, isActive, system.Name));
         }
         if (roots.Count == 0)
         {
@@ -56,7 +56,7 @@ public partial class MainViewModel
             // 폐포 수집 + JSON 직렬화 = 배경 스레드 (store 읽기 전용). BusyOverlay 가 마우스를
             // 차단하지만 키보드 단축키는 못 막으므로 Revision 으로 변형 감지 → 안전 취소.
             var revisionBefore = _store.Revision;
-            var envelopeJson = await Task.Run(() => SystemPackageClipboard.BuildEnvelopeJson(_store, roots));
+            var envelopeJson = await Task.Run(() => Clipboard.BuildEnvelopeJson(_store, roots));
             if (_store.Revision != revisionBefore)
             {
                 _dialogService.ShowWarning("복사 중 모델이 변경되어 복사를 취소했습니다. 다시 복사하세요.");
@@ -65,17 +65,17 @@ public partial class MainViewModel
 
             // 파일 채널 먼저 — 클립보드가 막혀도 붙여넣기가 성립해야 한다(정본).
             var names = roots.Select(r => r.Name).ToList();
-            var spooled = SystemPackageSpool.TryWritePayload(envelopeJson);
+            var spooled = Spool.TryWritePayload(envelopeJson);
 
             // STA — UI 스레드 (await 후 복귀 지점). 클립보드는 best-effort (점유 실패 = 예외 아님).
-            var writeMode = await SystemPackageClipboard.SetPackageTextAsync(envelopeJson);
-            var published = writeMode != SystemPackageClipboard.WriteMode.Failed;
+            var writeMode = await Clipboard.SetPackageTextAsync(envelopeJson);
+            var published = writeMode != Clipboard.WriteMode.Failed;
 
             // 클립보드 결과를 확정한 뒤 meta 커밋 = 스풀 공개. 게시 실패 시엔 그 시점의 시퀀스를
             // 함께 남겨, 붙여넣기 측이 "클립보드에 남은 옛 패키지"를 스풀보다 우선하지 않게 한다.
             if (spooled)
-                spooled = SystemPackageSpool.TryCommitMeta(
-                    names, SystemPackageClipboard.AppVersion, published, SystemPackageClipboard.CurrentSequence);
+                spooled = Spool.TryCommitMeta(
+                    names, Clipboard.AppVersion, published, Clipboard.CurrentSequence);
 
             if (!published && !spooled)
             {
@@ -98,12 +98,12 @@ public partial class MainViewModel
             StatusText = $"시스템 복사됨: {nameList} — 다른 프로메이커 창에서 Ctrl+V 로 붙여넣기";
             switch (writeMode)
             {
-                case SystemPackageClipboard.WriteMode.Volatile:
+                case Clipboard.WriteMode.Volatile:
                     // 플러시 실패 폴백 = 이 프로세스가 클립보드 소유자 — 창을 닫으면 클립보드는 비지만
                     // 파일 채널이 남아 있으므로 붙여넣기 자체는 계속 가능하다.
                     Log.Warn("System package clipboard write fell back to volatile (no OleFlushClipboard).");
                     break;
-                case SystemPackageClipboard.WriteMode.Failed:
+                case Clipboard.WriteMode.Failed:
                     Log.Warn("System package clipboard write failed — file channel only.");
                     StatusText += " (클립보드가 점유돼 파일 채널로 복사됨)";
                     break;
@@ -125,7 +125,7 @@ public partial class MainViewModel
     private void RememberInternalCopy()
     {
         _internalCopiedAtUtc = DateTime.UtcNow;
-        _internalCopyClipboardSequence = SystemPackageClipboard.CurrentSequence;
+        _internalCopyClipboardSequence = Clipboard.CurrentSequence;
     }
 
     /// <summary>System 패키지가 이 창의 일반 복사보다 나중에 복사됐는지 — "가장 최근 복사가 이긴다"(#249).
@@ -139,26 +139,26 @@ public partial class MainViewModel
 
     private bool IsSystemPackageNewerThanInternalCopy()
     {
-        var sequence = SystemPackageClipboard.CurrentSequence;
+        var sequence = Clipboard.CurrentSequence;
         return SystemPackageIsNewer(
             _internalCopiedAtUtc, _internalCopyClipboardSequence,
-            SystemPackageSpool.TryReadMeta()?.WrittenAtUtc,
+            Spool.TryReadMeta()?.WrittenAtUtc,
             sequence,
-            sequence != _internalCopyClipboardSequence && SystemPackageClipboard.HasPackage());
+            sequence != _internalCopyClipboardSequence && Clipboard.HasPackage());
     }
 
     private bool TryPasteSystemPackage()
     {
-        var meta = SystemPackageSpool.TryReadMeta();
+        var meta = Spool.TryReadMeta();
 
         // 채널 우선순위: 스풀이 "클립보드에 못 올라간 복사분"이고 그 뒤로 클립보드가 바뀌지도
         // 않았다면, 클립보드에 남은 패키지는 확실히 더 낡은 것 → 스풀을 정본으로 쓴다(확인 불필요).
         var spoolIsNewer = meta is { ClipboardPublished: false }
-                        && meta.ClipboardSequence == SystemPackageClipboard.CurrentSequence;
+                        && meta.ClipboardSequence == Clipboard.CurrentSequence;
 
         // 클립보드 원문 읽기는 STA 필수 — 여기(UI)서 확보하고 파싱부터 배경으로.
-        var rawText = !spoolIsNewer && SystemPackageClipboard.HasPackage()
-            ? SystemPackageClipboard.TryGetRawText()
+        var rawText = !spoolIsNewer && Clipboard.HasPackage()
+            ? Clipboard.TryGetRawText()
             : null;
         var source = "클립보드";
 
@@ -183,7 +183,7 @@ public partial class MainViewModel
                     "시스템 붙여넣기"))
                 return true;   // 사용자가 거절 = 처리 완료(호출부의 "Clipboard is empty" 문구 억제)
 
-            rawText = SystemPackageSpool.TryReadPayload();
+            rawText = Spool.TryReadPayload();
             if (rawText is null)
                 return false;
             source = "파일 채널";
@@ -201,10 +201,10 @@ public partial class MainViewModel
         // 봉투 파싱 + 부분 store 역직렬화 = 배경 스레드 (독립 객체 생성뿐 — 레이스 없음)
         var (source, envelope, error) = await Task.Run(() =>
         {
-            var env = SystemPackageClipboard.ParseEnvelope(rawText, out var err);
+            var env = Clipboard.ParseEnvelope(rawText, out var err);
             if (env is null)
                 return ((DsStore?)null, env, err);
-            return (SystemPackageClipboard.DeserializeStore(env), env, "");
+            return (Clipboard.DeserializeStore(env), env, "");
         });
 
         if (envelope is null || source is null)

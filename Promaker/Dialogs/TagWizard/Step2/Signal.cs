@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using AAStoPLC.TagWizard;
 using Promaker.Services;
+using Promaker.Services.Io;
 
 namespace Promaker.Dialogs;
 
@@ -124,11 +125,11 @@ public partial class TagWizardDialog
                 target.Add(DtoFromRow(row));
     }
 
-    // ── Generation: IoSignalPipeline facade 호출 + 결과 분류 ───────────────
+    // ── Generation: SignalPipeline facade 호출 + 결과 분류 ───────────────
 
     /// <summary>
-    /// 신호 생성 — IoSignalPipeline facade 만 호출. F# IoListPipeline 직접 의존 없음.
-    /// 행 변환/매칭/Dummy 변환 로직은 모두 Services/IoSignalPipeline.
+    /// 신호 생성 — SignalPipeline facade 만 호출. F# IoListPipeline 직접 의존 없음.
+    /// 행 변환/매칭/Dummy 변환 로직은 모두 Services/Io/SignalPipeline.
     /// </summary>
     private bool GenerateSignals()
     {
@@ -137,7 +138,7 @@ public partial class TagWizardDialog
             NextButton.IsEnabled = false;
             NextButton.Content = "생성 중...";
 
-            var bundle = IoSignalPipeline.GenerateAll(_store);
+            var bundle = SignalPipeline.GenerateAll(_store);
 
             // 파이프라인 자체 오류는 오류 탭으로 노출.
             if (bundle.ErrorMessages.Count > 0)
@@ -154,7 +155,7 @@ public partial class TagWizardDialog
                 _ioRows.Add(row);
             foreach (var row in bundle.DummyRows)
                 _dummyRows.Add(row);
-            foreach (var u in IoSignalPipeline.ClassifyUnmatched(_ioRows))
+            foreach (var u in SignalPipeline.ClassifyUnmatched(_ioRows))
                 _unmatchedRows.Add(u);
 
             UpdateUnmatchedTab();
@@ -248,12 +249,12 @@ public partial class TagWizardDialog
         if (confirm != MessageBoxResult.Yes) return false;
 
         // 적용 실행.
-        IoTagApplier.ApplyResult applyResult;
+        TagApplier.ApplyResult applyResult;
         try
         {
             NextButton.IsEnabled = false;
             NextButton.Content = "적용 중...";
-            applyResult = IoTagApplier.Apply(_store, validRows);
+            applyResult = TagApplier.Apply(_store, validRows);
             _successCount = applyResult.SuccessCount;
         }
         catch (System.Exception ex)
@@ -276,7 +277,7 @@ public partial class TagWizardDialog
     }
 
     /// <summary>적용 후 통합 리포트 — 단일 다이얼로그. Call 구조 위반 시 마이그레이션 yes/no 분기 포함.</summary>
-    private void ShowUnifiedApplyReport(IoTagApplier.ApplyResult applyResult, int unmatchedCount)
+    private void ShowUnifiedApplyReport(TagApplier.ApplyResult applyResult, int unmatchedCount)
     {
         var summary = WizardSummaryBuilder.Build(
             _store, _successCount, _ioRows.Count, _dummyRows.Count, SignalTemplateWarnings);
@@ -328,7 +329,7 @@ public partial class TagWizardDialog
         }
     }
 
-    /// <summary>오류 메시지 리스트를 다이얼로그 탭에 표시 (IoSignalPipeline 결과 기반).</summary>
+    /// <summary>오류 메시지 리스트를 다이얼로그 탭에 표시 (SignalPipeline 결과 기반).</summary>
     private void DisplayErrorsFromMessages(System.Collections.Generic.IReadOnlyList<string> messages)
     {
         _errorItems.Clear();

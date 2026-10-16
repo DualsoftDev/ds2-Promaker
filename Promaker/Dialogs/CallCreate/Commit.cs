@@ -139,7 +139,7 @@ public partial class CallCreateDialog
         // "확인 눌렀는데 창만 닫히고 아무것도 안 만들어짐" 증상으로 직결. 진입 시점에서 명확히 거부.
         if (apiNames.Count == 0
             || apiNames.All(n => string.IsNullOrEmpty(n)
-                              || n.Equals(Services.IoConstants.ApiNoneSentinel, StringComparison.OrdinalIgnoreCase)))
+                              || n.Equals(Services.Io.Constants.ApiNoneSentinel, StringComparison.OrdinalIgnoreCase)))
         {
             DialogHelpers.Warn(
                 "ApiCall 복제는 ApiName 이 필수입니다.\n\n" +

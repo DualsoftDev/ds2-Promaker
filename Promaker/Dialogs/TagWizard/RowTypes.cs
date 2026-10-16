@@ -1,4 +1,5 @@
 using Promaker.Services;
+using Promaker.Services.Io;
 
 namespace Promaker.Dialogs;
 
@@ -63,7 +64,7 @@ public class FlowBaseRow : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
 /// </summary>
 public class SignalPatternRow : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
 {
-    private const string ApiNoneSentinel = IoConstants.ApiNoneSentinel;
+    private const string ApiNoneSentinel = Constants.ApiNoneSentinel;
 
     string _apiName = "", _pattern = "", _targetFBType = "", _targetFBPort = "";
     bool _skipAddressAlloc, _isSpare;

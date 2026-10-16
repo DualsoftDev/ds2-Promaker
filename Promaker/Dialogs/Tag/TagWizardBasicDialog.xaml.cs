@@ -6,12 +6,13 @@ using System.Windows;
 using Ds2.Core.Store;
 using Ds2.Editor;
 using Promaker.Services;
+using Promaker.Services.Io;
 
 namespace Promaker.Dialogs;
 
 /// <summary>
 /// 기본 모드 TAG Wizard — 심볼 매크로와 Flow 선두주소만으로 ApiCall.InTag/OutTag 일괄 생성.
-/// 신호 생성/적용은 BasicMacroIoGenerator + IoTagApplier 서비스로 위임.
+/// 신호 생성/적용은 BasicMacroIoGenerator + TagApplier 서비스로 위임.
 /// </summary>
 public partial class TagWizardBasicDialog : Window
 {
@@ -189,7 +190,7 @@ public partial class TagWizardBasicDialog : Window
             MessageBoxButton.YesNo, "⚠");
         if (confirm != MessageBoxResult.Yes) return;
 
-        var result = IoTagApplier.Apply(_store, _previewRows);
+        var result = TagApplier.Apply(_store, _previewRows);
 
         DialogHelpers.ShowThemedMessageBox(
             $"✓ {result.SuccessCount}개 ApiCall 적용 완료" +

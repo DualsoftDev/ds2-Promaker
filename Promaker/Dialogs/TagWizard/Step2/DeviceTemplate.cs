@@ -8,6 +8,7 @@ using System.Windows;
 using AAStoPLC.TagWizard;
 using Ds2.Editor;
 using Promaker.Services;
+using Promaker.Services.Io;
 
 namespace Promaker.Dialogs;
 
@@ -131,7 +132,7 @@ public partial class TagWizardDialog
                 .Concat(presetDto.QwPatterns.Select(p => p.ApiName))
                 .Concat(presetDto.MwPatterns.Select(p => p.ApiName))
                 .Where(n => !string.IsNullOrWhiteSpace(n)
-                         && !string.Equals(n, IoConstants.ApiNoneSentinel, StringComparison.OrdinalIgnoreCase)
+                         && !string.Equals(n, Constants.ApiNoneSentinel, StringComparison.OrdinalIgnoreCase)
                          && !string.Equals(n, "-", StringComparison.Ordinal))
                 .Distinct(StringComparer.OrdinalIgnoreCase);
             LoadAuxPortRows(systemType, apis);

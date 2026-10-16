@@ -365,4 +365,4 @@ type DsStorePanelTokenSpecExtensions =
                 for spec in specList do p.TokenSpecs.Add(spec)))
         store.EmitAndHistory(ProjectPropsChanged project.Id)
 
-// ─── Conditions & Properties: see Panel.Condition.fs, Panel.Properties.fs ───
+// ─── Conditions & Properties: see Condition.fs, Properties.fs ───

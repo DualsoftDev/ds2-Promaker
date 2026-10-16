@@ -118,12 +118,4 @@ public partial class PropertyPanel : UserControl
                 return VisualTreeHelper.GetParent(child);
         }
     }
-
-    /// <summary>UserTags CSV 메뉴 버튼 — 좌클릭 시 ContextMenu 를 펼친다.</summary>
-    private void UserTagsCsvButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Button btn || btn.ContextMenu is null) return;
-        btn.ContextMenu.PlacementTarget = btn;
-        btn.ContextMenu.IsOpen = true;
-    }
 }

@@ -177,7 +177,7 @@ public sealed class TagInspectorDialogTests
     {
         StaTestRunner.Run(() =>
         {
-            // 새 시그니처: 1-arg (store) — 행은 다이얼로그가 IoQueryService 로 직접 채움.
+            // 새 시그니처: 1-arg (store) — 행은 다이얼로그가 Io.QueryService 로 직접 채움.
             // 빈 store 에서 행이 0 개여도 RowCheckBox 경로는 grid 가 외부 source 일 때 검증되므로,
             //   여기서는 외부 grid 에 행을 직접 주입하는 단위 검증으로 대체.
             var store = DsStore.empty();

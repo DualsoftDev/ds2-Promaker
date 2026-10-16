@@ -14,6 +14,7 @@ using Ds2.Editor;
 using Microsoft.FSharp.Core;
 using Promaker.Presentation;
 using Promaker.Services;
+using Promaker.Services.Io;
 
 namespace Promaker.Dialogs;
 
@@ -219,8 +220,8 @@ public partial class TagWizardDialog : Window, INotifyPropertyChanged
         foreach (var n in set) WizApiNames.Add(n);
     }
 
-    /// <summary>"Api 사용 안 함" 표시용 sentinel — IoConstants 의 별칭(기존 호출부 호환).</summary>
-    public const string ApiNoneSentinel = IoConstants.ApiNoneSentinel;
+    /// <summary>"Api 사용 안 함" 표시용 sentinel — Constants 의 별칭(기존 호출부 호환).</summary>
+    public const string ApiNoneSentinel = Constants.ApiNoneSentinel;
 
     /// <summary>새 행의 기본 ApiName 은 Api_None — 사용자가 명시적으로 실제 API 를 선택해야 한다.</summary>
     private string DefaultApiName() => ApiNoneSentinel;
