@@ -198,6 +198,40 @@ public sealed class EditorWiringRegressionTests
         }
     }
 
+    /// <summary>Device CSV 는 내보낼 수도 있어야 한다(#253) — 불러오기만 있어 형식을 손으로 처음부터 적어야 했다.
+    /// 내보낸 파일을 빈 프로젝트에 불러오면 같은 Device·Api 가 생긴다.</summary>
+    [Fact]
+    public void An_exported_device_csv_imports_the_same_devices_into_another_project()
+    {
+        var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"devices-{Guid.NewGuid():N}.csv");
+        try
+        {
+            StaTestRunner.Run(() =>
+            {
+                var (source, sourceStore, _, sourceProjectId, _, _) = NewProject();
+                sourceStore.ImportDevices(sourceProjectId, new[]
+                {
+                    new DeviceApiSpec("Cyl", "Adv", ActionType.NewPulse(200), SensingType.NewLatch(300), "전진"),
+                    new DeviceApiSpec("Cyl", "Ret", ActionType.NewNormal(null), SensingType.NewNormal(null), "")
+                }, DeviceNameConflictMode.Skip);
+                Assert.True(source.ExportDeviceCsvToPath(path));
+
+                var (target, targetStore, _, targetProjectId, _, _) = NewProject();
+                target.ImportDeviceCsvFile(path);
+
+                var device = Queries.passiveSystemsOf(targetProjectId, targetStore).Single(s => s.Name == "Cyl");
+                var adv = Queries.apiDefsOf(device.Id, targetStore).Single(d => d.Name == "Adv");
+                Assert.Equal(ActionType.NewPulse(200), adv.ActionType);
+                Assert.Equal(SensingType.NewLatch(300), adv.SensingType);
+                Assert.Equal(2, Queries.apiDefsOf(device.Id, targetStore).Length);
+            });
+        }
+        finally
+        {
+            if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
+        }
+    }
+
     /// <summary>Reference 가 걸린 Work 를 다른 Flow 로 옮기면 막고 이유를 알려야 한다 — 예전엔 원본이 옮겨지고 Reference 가
     /// 경고 없이 지워졌다.</summary>
     [Fact]

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using CommunityToolkit.Mvvm.Input;
+using Promaker.Dialogs;
 using Ds2.Core.Store;
 using Ds2.CSV;
 using Ds2.Editor;
@@ -27,6 +28,39 @@ public partial class MainViewModel
             return;
 
         ImportDeviceCsvFile(path);
+    }
+
+    /// <summary>Device CSV 내보내기 — 지금 프로젝트의 Device·Api 를 같은 형식으로 저장한다. 고쳐서 다른 프로젝트에 불러오거나
+    /// 양식으로 쓴다. 예전엔 불러오기만 있어서 이 형식을 손으로 처음부터 적어야 했다.</summary>
+    [RelayCommand(CanExecute = nameof(HasProject))]
+    private void ExportDeviceCsv()
+    {
+        var path = _dialogService.ShowSaveFileDialog("CSV 파일 (*.csv)|*.csv|모든 파일 (*.*)|*.*", "devices.csv");
+        if (path is null)
+            return;
+
+        if (ExportDeviceCsvToPath(path))
+            CsvFileHelper.PromptOpenAfterExport(path, title: "Device CSV 내보내기");
+    }
+
+    internal bool ExportDeviceCsvToPath(string path)
+    {
+        var project = Queries.allProjects(_store).FirstOrDefault();
+        if (project is null)
+            return false;
+
+        try
+        {
+            // 표준 CSV 내보내기와 같은 UTF-8(BOM) — 엑셀에서 한글이 깨지지 않는다.
+            File.WriteAllText(path, DeviceCsv.projectToCsv(_store, project.Id), System.Text.Encoding.UTF8);
+            StatusText = $"Device CSV 내보내기 완료 ({path})";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _dialogService.ShowWarning($"Device CSV 를 저장할 수 없습니다: {ex.Message}");
+            return false;
+        }
     }
 
     internal void ImportDeviceCsvFile(string path)
