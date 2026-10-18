@@ -165,9 +165,6 @@ public partial class MainViewModel : ObservableObject
         false;
 #endif
 
-    /// <summary>XAML 바인딩용 인스턴스 프록시 — DEBUG 빌드에서만 미완성 기능(예: PLC 생성) 노출.</summary>
-    public bool IsDebugBuildInstance => IsDebugBuild;
-
     public Xywh? PendingAddPosition { get; set; }
 
     [ObservableProperty] private ArrowType _selectedConnectArrowType = ArrowType.Start;

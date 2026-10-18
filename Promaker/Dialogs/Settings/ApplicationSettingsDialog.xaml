@@ -151,58 +151,7 @@
                     </ScrollViewer>
                 </TabItem>
 
-                <!-- 탭 2: PLC -->
-                <TabItem Header="PLC">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="10">
-                        <StackPanel>
-                            <!-- 신호 템플릿은 AASX 내 FBTagMapPresets 로 완전 이전됨 (외부 파일 불필요). -->
-                            <!-- FBTagMap 설정은 IO Wizard 내부로 이전됨 (B안: IoList = 단일 진실원) -->
-
-                            <!-- XGI 템플릿 파일 -->
-                            <TextBlock Text="XGI 템플릿 파일"
-                                       FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"
-                                       Margin="0,0,0,2"/>
-                            <Grid Margin="0,0,0,4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="6"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBox x:Name="PlcXgiTemplatePathBox" Grid.Column="0"
-                                         Padding="6,4" FontFamily="Consolas" FontSize="11"/>
-                                <Button Grid.Column="2" Content="..."
-                                        Style="{StaticResource DarkButton}"
-                                        Padding="10,4" Click="BrowsePlcXgiTemplate_Click"/>
-                            </Grid>
-                            <TextBlock Text="XGI_Template.xml 경로 (필수) — 비우면 자동으로 디폴트 경로로 복원됩니다."
-                                       FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"
-                                       Margin="0,0,0,16" FontStyle="Italic"/>
-
-                            <!-- XG5000 실행 파일 -->
-                            <TextBlock Text="XG5000 실행 파일"
-                                       FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}"
-                                       Margin="0,0,0,2"/>
-                            <Grid Margin="0,0,0,4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="6"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBox x:Name="PlcXg5000ExePathBox" Grid.Column="0"
-                                         Padding="6,4" FontFamily="Consolas" FontSize="11"/>
-                                <Button Grid.Column="2" Content="..."
-                                        Style="{StaticResource DarkButton}"
-                                        Padding="10,4" Click="BrowsePlcXg5000Exe_Click"/>
-                            </Grid>
-                            <TextBlock Text="XG5000.exe 경로 (필수) — 비우면 자동으로 기본 설치 경로로 복원됩니다."
-                                       FontSize="10" Foreground="{DynamicResource SecondaryTextBrush}"
-                                       Margin="0,0,0,0" FontStyle="Italic"/>
-                        </StackPanel>
-                    </ScrollViewer>
-                </TabItem>
-
-
-                <!-- 탭 4: 프리셋 -->
+                <!-- 탭 2: 프리셋 -->
                 <TabItem Header="프리셋">
                     <Grid Margin="10">
                         <Grid.RowDefinitions>

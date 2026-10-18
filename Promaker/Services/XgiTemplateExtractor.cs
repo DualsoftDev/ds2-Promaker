@@ -30,7 +30,7 @@ internal static class XgiTemplateExtractor
                 return false;
 
             // 임시 파일에 다 쓴 뒤 이름을 바꾼다 — 복사 중 실패하면 반쯤 쓴 파일이 남고, 다음부터는 File.Exists 에 걸려
-            // 다시 추출하지 않아 태그 마법사·PLC 생성이 깨진 템플릿을 계속 읽었다.
+            // 다시 추출하지 않아 태그 마법사가 깨진 템플릿을 계속 읽었다.
             var tempPath = destPath + ".tmp";
             try
             {

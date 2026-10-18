@@ -66,11 +66,6 @@
                             <TextBlock Text="PLC" FontSize="11" FontWeight="SemiBold" Margin="8,4,8,4" Foreground="{DynamicResource PrimaryTextBrush}"/>
                             <Button Style="{StaticResource AddMenuItemButton}" Command="{Binding OpenTagWizardCommand}" Click="CloseUtilPopup"><TextBlock Text="IO 생성"/></Button>
                             <Button Style="{StaticResource AddMenuItemButton}" Command="{Binding OpenTagInspectorCommand}" Click="CloseUtilPopup"><TextBlock Text="IO·태그 확인"/></Button>
-                            <Button Style="{StaticResource AddMenuItemButton}"
-                                    Command="{Binding OpenPlcXmlGeneratorCommand}"
-                                    Click="CloseUtilPopup">
-                                <TextBlock Text="PLC 생성"/>
-                            </Button>
                             <Separator Margin="4,4"/>
                             <TextBlock Text="뷰" FontSize="11" FontWeight="SemiBold" Margin="8,4,8,4" Foreground="{DynamicResource PrimaryTextBrush}"/>
                             <Button Style="{StaticResource AddMenuItemButton}" Command="{Binding Open3DViewCommand}" Click="CloseUtilPopup"><TextBlock Text="3D 배치 뷰"/></Button>
@@ -84,7 +79,7 @@
             <!-- PR-A3 — '보기' 메뉴 제거. 패널 임의 hide 는 더 이상 지원하지 않으며, dock 변경 후 원위치 복원은
                  설정 다이얼로그 일반 탭의 '레이아웃 초기화' 로 일원화. ThemeButton 도 설정으로 이전. -->
             <!-- PR-A3 — ThemeButton 은 설정 다이얼로그 '일반' 탭으로 이전. 리본 상단에서는 제거. -->
-            <Button Style="{StaticResource CollapsibleRibbonButton}" Command="{Binding ShowApplicationSettingsCommand}" ToolTip="환경 설정 (일반/AASX/PLC/프리셋)">
+            <Button Style="{StaticResource CollapsibleRibbonButton}" Command="{Binding ShowApplicationSettingsCommand}" ToolTip="환경 설정 (일반/AASX/프리셋)">
                 <StackPanel Orientation="Vertical">
                     <iconPacks:PackIconMaterial Kind="Cog" Width="18" Height="18" HorizontalAlignment="Center" Foreground="{DynamicResource IconGrayBrush}"/>
                     <TextBlock Text="{x:Static res:Strings.Settings}" Style="{StaticResource RibbonIconLabel}"/>

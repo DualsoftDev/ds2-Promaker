@@ -113,7 +113,7 @@
                                    Text="🛠 고급 (Advanced)"/>
                         <TextBlock FontSize="11" Margin="0,3,0,0" TextWrapping="Wrap"
                                    Foreground="{DynamicResource SecondaryTextBrush}"
-                                   Text="SystemType 별 FB 타입 · FB Local Label · AUX 포트 · 주소 오버라이드까지 세밀 설정. PLC 생성 연계용."/>
+                                   Text="SystemType 별 FB 타입 · FB Local Label · AUX 포트 · 주소 오버라이드까지 세밀 설정."/>
                     </StackPanel>
                 </RadioButton>
             </StackPanel>

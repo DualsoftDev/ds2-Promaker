@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
-using Microsoft.Win32;
 using Promaker.Presentation;
 using Promaker.Services;
 
@@ -34,8 +33,8 @@ public partial class ApplicationSettingsDialog : Window
     public string[] ResultPresetSystemTypes { get; private set; } = Array.Empty<string>();
 
     /// <summary>탭 SSOT — XAML 의 TabItem 순서와 일치.
-    /// General=0, Aasx=1, Plc=2, Preset=3.</summary>
-    public enum SettingsTab { General = 0, Aasx = 1, Plc = 2, Preset = 3 }
+    /// General=0, Aasx=1, Preset=2.</summary>
+    public enum SettingsTab { General = 0, Aasx = 1, Preset = 2 }
 
     /// <summary>
     /// <paramref name="initialTab"/> 으로 특정 탭을 선택해서 열 수 있음. 유효 범위 밖이면 ArgumentOutOfRangeException
@@ -57,10 +56,6 @@ public partial class ApplicationSettingsDialog : Window
         IriPrefixBox.Text = AppSettingStore.LoadStringOrDefault(IriPrefixSettingsPath, DefaultIriPrefix);
         SplitDeviceAasxBox.IsChecked = AppSettingStore.LoadBoolOrDefault(SplitDeviceAasxSettingsPath, false);
         CreateDefaultEntitiesBox.IsChecked = AppSettingStore.LoadBoolOrDefault(CreateDefaultEntitiesSettingsPath, false);
-
-        var plcCfg = PlcConfig.Settings;
-        PlcXgiTemplatePathBox.Text = plcCfg.EffectiveXgiTemplatePath;
-        PlcXg5000ExePathBox.Text   = plcCfg.EffectiveXg5000ExePath;
 
         LoadPresetMappings();
 
@@ -200,35 +195,7 @@ public partial class ApplicationSettingsDialog : Window
 
         SavePresetsToFile(ResultPresetSystemTypes);
 
-        PlcConfig.Save(
-            PlcXgiTemplatePathBox.Text.Trim(),
-            PlcXg5000ExePathBox.Text.Trim());
-
         DialogResult = true;
-    }
-
-    private void BrowsePlcXgiTemplate_Click(object sender, RoutedEventArgs e)
-    {
-        var picker = new OpenFileDialog
-        {
-            Title  = "XGI 템플릿 파일 선택",
-            Filter = "XML Files (*.xml)|*.xml|All Files (*.*)|*.*",
-            FileName = PlcXgiTemplatePathBox.Text
-        };
-        if (picker.ShowDialog(this) == true)
-            PlcXgiTemplatePathBox.Text = picker.FileName;
-    }
-
-    private void BrowsePlcXg5000Exe_Click(object sender, RoutedEventArgs e)
-    {
-        var picker = new OpenFileDialog
-        {
-            Title  = "XG5000.exe 선택",
-            Filter = "Executable Files (*.exe)|*.exe|All Files (*.*)|*.*",
-            FileName = PlcXg5000ExePathBox.Text
-        };
-        if (picker.ShowDialog(this) == true)
-            PlcXg5000ExePathBox.Text = picker.FileName;
     }
 
     /// <summary>

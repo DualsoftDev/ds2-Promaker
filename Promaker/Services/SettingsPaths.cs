@@ -18,7 +18,6 @@ public static class SettingsPaths
 
     private static readonly string[] MovedFileNames =
     {
-        "PlcConfig.txt",
         "splitDeviceAasx.txt",
         "iriPrefix.txt",
         "createDefaultEntitiesOnEmptyAasx.txt",
@@ -32,7 +31,6 @@ public static class SettingsPaths
         return Path.Combine(SettingsRoot, fileName);
     }
 
-    public static string PlcConfig                       => Of("PlcConfig.txt");
     public static string SplitDeviceAasx                 => Of("splitDeviceAasx.txt");
     public static string IriPrefix                       => Of("iriPrefix.txt");
     public static string CreateDefaultEntitiesOnEmptyAasx => Of("createDefaultEntitiesOnEmptyAasx.txt");
@@ -56,7 +54,7 @@ public static class SettingsPaths
     /// 성립하게 하는 정본 저장소. 사용자별 AppData 라 같은 계정의 두 인스턴스가 공유한다.</summary>
     public static string ClipboardSpoolDir => Path.Combine(AppDataRoot, "ClipboardSpool");
 
-    /// <summary>PlcConfig 미존재 시 동봉 XGI_Template.xml 가 복사될 기본 위치.</summary>
+    /// <summary>IO 생성이 FB 포트 목록을 읽는 XGI_Template.xml 위치 — 없으면 동봉 리소스에서 추출해 둔다.</summary>
     public static string DefaultXgiTemplate => Path.Combine(PlcTemplateDir, "XGI_Template.xml");
 
     /// <summary>옛 경로(AppData\Dualsoft\Promaker\xxx) → 새 경로(Settings\xxx) 1회 이동.</summary>
