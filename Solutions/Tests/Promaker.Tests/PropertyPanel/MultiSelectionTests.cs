@@ -6,9 +6,9 @@ using Ds2.Editor;
 using Promaker.ViewModels;
 using Xunit;
 
-namespace Promaker.Tests;
+namespace Promaker.Tests.PropertyPanel;
 
-public sealed class PropertyPanelMultiSelectionTests
+public sealed class MultiSelectionTests
 {
     [Fact]
     public void Multi_selected_works_apply_period_to_all_selected_items()

@@ -62,61 +62,78 @@
                 </Grid>
             </Border>
 
-            <ScrollViewer Grid.Row="1"
-                          VerticalScrollBarVisibility="Auto"
-                          HorizontalScrollBarVisibility="Disabled"
-                          MinHeight="40" MaxHeight="200">
-                <ItemsControl ItemsSource="{Binding UserTags}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Grid Margin="4,2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <Ellipse Grid.Column="0"
-                                         Width="8" Height="8"
-                                         VerticalAlignment="Center"
-                                         Margin="0,0,6,0"
-                                         ToolTip="{Binding LogLevel}"
-                                         Fill="{Binding LogLevel, Converter={StaticResource LogLevelToBrush}}"/>
-                                <TextBlock Grid.Column="1"
-                                           Text="{Binding Name}"
-                                           VerticalAlignment="Center"
-                                           TextTrimming="CharacterEllipsis"
-                                           FontSize="11"/>
-                                <TextBlock Grid.Column="2"
-                                           VerticalAlignment="Center"
-                                           FontSize="10"
-                                           Margin="6,0,0,0"
-                                           Foreground="{DynamicResource SecondaryTextBrush}">
-                                    <Run Text="{Binding TagAddress, Mode=OneWay}"/>
-                                    <Run Text="·"/>
-                                    <Run Text="{Binding ValueType, Mode=OneWay}"/>
-                                </TextBlock>
-                                <Button Grid.Column="3"
-                                        Content="✎"
-                                        ToolTip="사용자 태그 편집"
-                                        Style="{StaticResource InlineListButton}"
-                                        Margin="4,0,0,0"
-                                        Command="{Binding DataContext.EditSystemUserTagCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                        CommandParameter="{Binding}"/>
-                                <Button Grid.Column="4"
-                                        Content="×"
-                                        ToolTip="사용자 태그 삭제"
-                                        Style="{StaticResource InlineListButton}"
-                                        Margin="2,0,0,0"
-                                        Foreground="{DynamicResource RedAccentBrush}"
-                                        Command="{Binding DataContext.DeleteSystemUserTagCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                        CommandParameter="{Binding}"/>
-                            </Grid>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
+            <!-- 보이는 줄만 만든다(가상화) — System 하나에 태그가 천 개 넘게 있으면 줄을 전부 만드느라 선택할 때마다 수 초 멈췄다(#252). -->
+            <ItemsControl x:Name="UserTagList" x:FieldModifier="internal"
+                          Grid.Row="1"
+                          MinHeight="40" MaxHeight="200"
+                          ItemsSource="{Binding UserTags}"
+                          VirtualizingPanel.IsVirtualizing="True"
+                          VirtualizingPanel.VirtualizationMode="Recycling"
+                          ScrollViewer.CanContentScroll="True">
+                <ItemsControl.Template>
+                    <ControlTemplate TargetType="ItemsControl">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      CanContentScroll="True"
+                                      Focusable="False">
+                            <ItemsPresenter/>
+                        </ScrollViewer>
+                    </ControlTemplate>
+                </ItemsControl.Template>
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="4,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Ellipse Grid.Column="0"
+                                     Width="8" Height="8"
+                                     VerticalAlignment="Center"
+                                     Margin="0,0,6,0"
+                                     ToolTip="{Binding LogLevel}"
+                                     Fill="{Binding LogLevel, Converter={StaticResource LogLevelToBrush}}"/>
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding Name}"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"
+                                       FontSize="11"/>
+                            <TextBlock Grid.Column="2"
+                                       VerticalAlignment="Center"
+                                       FontSize="10"
+                                       Margin="6,0,0,0"
+                                       Foreground="{DynamicResource SecondaryTextBrush}">
+                                <Run Text="{Binding TagAddress, Mode=OneWay}"/>
+                                <Run Text="·"/>
+                                <Run Text="{Binding ValueType, Mode=OneWay}"/>
+                            </TextBlock>
+                            <Button Grid.Column="3"
+                                    Content="✎"
+                                    ToolTip="사용자 태그 편집"
+                                    Style="{StaticResource InlineListButton}"
+                                    Margin="4,0,0,0"
+                                    Command="{Binding DataContext.EditSystemUserTagCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                    CommandParameter="{Binding}"/>
+                            <Button Grid.Column="4"
+                                    Content="×"
+                                    ToolTip="사용자 태그 삭제"
+                                    Style="{StaticResource InlineListButton}"
+                                    Margin="2,0,0,0"
+                                    Foreground="{DynamicResource RedAccentBrush}"
+                                    Command="{Binding DataContext.DeleteSystemUserTagCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                    CommandParameter="{Binding}"/>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
         </Grid>
     </Border>
 </UserControl>

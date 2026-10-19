@@ -166,7 +166,7 @@ public sealed class CommandAvailabilityTests
         StaTestRunner.Run(() =>
         {
             var vm = new MainViewModel();
-            var panel = new PropertyPanel
+            var panel = new Promaker.Controls.PropertyPanel
             {
                 DataContext = vm.PropertyPanel
             };
